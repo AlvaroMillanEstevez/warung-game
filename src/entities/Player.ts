@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COLORS as C, PLAYER } from '../config';
 import { moveWithCollisions } from '../world/collision';
 import type { Point, Rect } from '../world/layout';
+import type { CarriedItem } from '../simulation/Production';
 
 export class Player {
   readonly position: Point = { ...PLAYER.spawn };
@@ -9,6 +10,8 @@ export class Player {
   private readonly body: Phaser.GameObjects.Graphics;
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly direction: Phaser.GameObjects.Graphics;
+  private readonly cargo: Phaser.GameObjects.Graphics;
+  private carried: CarriedItem = null;
   private facing: Point = { x: 0, y: 1 };
   private walkTime = 0;
 
@@ -16,9 +19,16 @@ export class Player {
     this.shadow = scene.add.ellipse(this.position.x, this.position.y + 2, 36, 15, C.shadow, 0.18).setDepth(-1);
     this.direction = scene.add.graphics().setDepth(-0.5);
     this.body = scene.add.graphics();
-    this.visual = scene.add.container(this.position.x, this.position.y, [this.body]);
+    this.cargo = scene.add.graphics();
+    this.visual = scene.add.container(this.position.x, this.position.y, [this.body, this.cargo]);
     this.draw(0);
     this.sync();
+  }
+
+  setCarried(carried: CarriedItem): void {
+    if (this.carried === carried) return;
+    this.carried = carried;
+    this.drawCargo();
   }
 
   update(movement: Point, deltaMs: number, obstacles: readonly Rect[]): void {
@@ -32,7 +42,29 @@ export class Player {
     }
     this.walkTime = moving ? this.walkTime + seconds * 13 : 0;
     this.draw(moving ? Math.sin(this.walkTime) : 0);
+    this.drawCargo();
     this.sync();
+  }
+
+  private drawCargo(): void {
+    const g = this.cargo;
+    g.clear();
+    if (!this.carried) return;
+    // Carry to the side when facing away, so the temporary item graphic stays legible.
+    g.setPosition(this.facing.y < -0.5 ? 21 : this.facing.x * 13, -16 + this.facing.y * 4);
+    if (this.carried === 'ingredients') {
+      g.fillStyle(C.woodLight).fillRoundedRect(-11, -6, 22, 16, 3);
+      g.fillStyle(C.green).fillEllipse(-5, -7, 11, 8).fillEllipse(2, -10, 8, 13);
+      g.fillStyle(C.coral).fillCircle(6, -5, 4);
+      g.lineStyle(2, C.woodDark).lineBetween(-7, 2, 7, 2);
+    } else {
+      g.fillStyle(C.cream).fillEllipse(0, 1, 29, 14);
+      g.fillStyle(C.woodLight).fillEllipse(0, -1, 22, 10);
+      g.fillStyle(C.cream).fillEllipse(2, -2, 10, 7);
+      g.fillStyle(C.gold).fillCircle(2, -2, 2.5);
+      g.fillStyle(C.green).fillCircle(-6, -2, 2).fillCircle(7, 2, 1.5);
+    }
+    this.visual.bringToTop(this.facing.y < -0.5 ? this.body : this.cargo);
   }
 
   private sync(): void {

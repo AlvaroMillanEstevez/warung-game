@@ -1,4 +1,4 @@
-// World units never change with the screen size. Only the canvas display scales.
+// World units never change with the screen size. The viewport and camera adapt.
 export const WORLD = { width: 880, height: 650 } as const;
 export const ROOM = { x: 64, y: 144, width: 752, height: 456 } as const;
 export const PLAYER = {
@@ -9,8 +9,15 @@ export const PLAYER = {
   maxFrameSeconds: 0.1,
   collisionStep: 4,
 } as const;
-export const INTERACTION = { radius: 48, messageDuration: 3200 } as const;
-export const CONTROLS = { deadZone: 0.16, joystickTravel: 0.32 } as const;
+export const INTERACTION = { radius: 48, dwellMs: 1500, messageDuration: 3200 } as const;
+export const PRODUCTION = { cookingMs: 4000, counterCapacity: 5 } as const;
+export const CONTROLS = { dragDeadZone: 10, dragMaxDistance: 58, stationaryTolerance: 0.06 } as const;
+export const CAMERA = {
+  bounds: { x: 46, y: 56, width: 788, height: 554 },
+  minimumZoom: 1.15,
+  followLerp: 0.12,
+  headOffset: 24,
+} as const;
 export const COLORS = {
   background: 0xe7e4d5, wall: 0xf7efd9, wallShade: 0xe7d6b5,
   floor: 0xe5d8bc, tile: 0xeee4ce, grout: 0xd6c8a9,

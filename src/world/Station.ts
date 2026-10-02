@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS as C } from '../config';
 import type { StationData } from './layout';
+import type { Production } from '../simulation/Production';
 
 export class Station {
   readonly visual: Phaser.GameObjects.Container;
@@ -8,6 +9,10 @@ export class Station {
   private readonly marker: Phaser.GameObjects.Graphics;
   private readonly label: Phaser.GameObjects.Text;
   private selected = false;
+  private readonly dwellBar: Phaser.GameObjects.Graphics;
+  private readonly productionArt: Phaser.GameObjects.Graphics;
+  private readonly statusLabel: Phaser.GameObjects.Text;
+  private lastProductionKey = '';
 
   constructor(scene: Phaser.Scene, readonly data: StationData) {
     const { x, y, width: w, height: d } = data.footprint;
@@ -84,7 +89,64 @@ export class Station {
     this.highlight.lineStyle(3, C.highlight).strokeRoundedRect(x - 3, y - lift - 3, w + 6, d + lift + 6, 7).setVisible(false);
     this.marker = scene.add.graphics().setDepth(-0.25);
     this.label = scene.add.text(data.interaction.x, data.interaction.y + 18, data.name, { fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#526451', backgroundColor: '#eee4ce', padding: { x: 5, y: 2 } }).setOrigin(0.5, 0).setDepth(-0.1);
+    this.dwellBar = scene.add.graphics().setDepth(1000);
+    this.productionArt = scene.add.graphics();
+    this.visual.add(this.productionArt);
+    this.statusLabel = scene.add.text(x + w / 2, y - lift - 10, '', {
+      fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#315e50',
+      backgroundColor: '#fff7e7', padding: { x: 6, y: 4 },
+    }).setOrigin(0.5, 1).setDepth(y + d + 0.3).setVisible(data.kind === 'stove' || data.kind === 'counter');
+    if (data.kind === 'table') { this.marker.setVisible(false); this.label.setVisible(false); }
     this.drawMarker();
+  }
+
+  setProgress(progress: number): void {
+    this.dwellBar.clear();
+    if (progress <= 0) return;
+    const { x, y } = this.data.interaction;
+    this.dwellBar.fillStyle(C.cream, 0.95).fillRoundedRect(x - 24, y + 40, 48, 8, 4);
+    this.dwellBar.fillStyle(C.highlight).fillRoundedRect(x - 22, y + 42, 44 * Math.min(1, progress), 4, 2);
+  }
+
+  showProduction(production: Production): void {
+    if (this.data.kind !== 'stove' && this.data.kind !== 'counter') return;
+    const bucket = Math.round(production.cookingProgress * 100);
+    const key = production.stove.status + ':' + bucket + ':' + production.portions;
+    if (key === this.lastProductionKey) return;
+    this.lastProductionKey = key;
+    const g = this.productionArt;
+    const { width: w, height: d } = this.data.footprint;
+    const lift = this.data.height;
+    g.clear();
+    if (this.data.kind === 'stove') {
+      const state = production.stove.status;
+      this.statusLabel.setText(state === 'empty' ? 'Vacío' : state === 'cooking' ? 'Cocinando' : '¡Listo para recoger!');
+      this.statusLabel.setColor(state === 'ready' ? '#315e50' : '#6c735c');
+      if (state !== 'empty') {
+        g.fillStyle(state === 'ready' ? C.highlight : C.gold, 0.24).fillEllipse(58, -lift + 20, 46, 30);
+        g.fillStyle(C.woodLight).fillEllipse(58, -lift + 20, 23, 13);
+        g.fillStyle(C.cream).fillEllipse(60, -lift + 18, 10, 7);
+        g.fillStyle(C.gold).fillCircle(60, -lift + 18, 2.5);
+        g.fillStyle(C.green).fillCircle(52, -lift + 18, 2);
+        g.fillStyle(C.greenDark).fillRoundedRect(13, d - lift + 18, w - 26, 8, 3);
+        g.fillStyle(state === 'ready' ? C.highlight : C.gold).fillRoundedRect(15, d - lift + 20, (w - 30) * production.cookingProgress, 4, 2);
+        if (state === 'ready') {
+          g.lineStyle(3, C.highlight).lineBetween(w - 23, -lift + 10, w - 18, -lift + 15).lineBetween(w - 18, -lift + 15, w - 9, -lift + 4);
+        }
+      }
+    } else {
+      this.statusLabel.setText(production.portions + ' / ' + production.capacity + (production.complete ? ' · completo' : ' raciones'));
+      // Capacity remains configurable; draw a compact stack rather than overflowing the counter.
+      for (let i = 0; i < Math.min(production.portions, 8); i++) {
+        const px = 30 + (i % 4) * 28;
+        const py = -lift + 23 + Math.floor(i / 4) * 16;
+        g.fillStyle(C.cream).fillEllipse(px, py, 25, 13);
+        g.fillStyle(C.woodLight).fillEllipse(px, py - 1, 18, 9);
+        g.fillStyle(C.cream).fillEllipse(px + 2, py - 2, 8, 6);
+        g.fillStyle(C.gold).fillCircle(px + 2, py - 2, 2);
+        g.fillStyle(C.green).fillCircle(px - 5, py, 1.5);
+      }
+    }
   }
 
   setSelected(selected: boolean): void {

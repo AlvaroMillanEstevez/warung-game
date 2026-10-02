@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, WORLD } from './config';
+import { COLORS } from './config';
 import { RestaurantScene } from './scenes/RestaurantScene';
 import './style.css';
 
@@ -7,30 +7,27 @@ const parent = document.querySelector<HTMLDivElement>('#game')!;
 export const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent,
-  width: WORLD.width,
-  height: WORLD.height,
-  backgroundColor: COLORS.background,
+  width: parent.clientWidth,
+  height: parent.clientHeight,
+  backgroundColor: COLORS.floor,
   antialias: true,
-  // Pointer controls use DOM Pointer Events; no physics plugin or third-party joystick is needed.
-  input: { keyboard: false },
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+  // Controls owns all DOM input, including cancellation and pointer capture.
+  input: { keyboard: false, mouse: false, touch: false },
+  scale: { mode: Phaser.Scale.RESIZE },
   scene: [RestaurantScene],
   banner: false,
 });
 
-// Parent layout may change independently of the window (mobile browser bars, container sizing).
-const observer = new ResizeObserver(() => game.scale.refresh());
+// The canvas changes size; furniture coordinates and collision footprints never do.
+const observer = new ResizeObserver(() => game.scale.resize(parent.clientWidth, parent.clientHeight));
 observer.observe(parent);
 const preventContextMenu = (event: Event): void => event.preventDefault();
 parent.addEventListener('contextmenu', preventContextMenu);
-const focusGame = (): void => parent.focus({ preventScroll: true });
-parent.addEventListener('pointerdown', focusGame);
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     observer.disconnect();
     parent.removeEventListener('contextmenu', preventContextMenu);
-    parent.removeEventListener('pointerdown', focusGame);
     game.destroy(true);
   });
 }
