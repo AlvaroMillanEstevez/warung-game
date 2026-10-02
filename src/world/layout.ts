@@ -25,11 +25,11 @@ export interface InteractionZone {
   id: string;
   stationId: string;
   name: string;
-  role: 'production' | 'deposit' | 'checkout' | 'pickup' | 'table' | 'bin';
+  role: 'production' | 'deposit' | 'checkout' | 'table' | 'bin';
   position: Point;
 }
 
-// Three non-overlapping access circles on the SAME counter; furniture does not move.
+// Deposit and checkout keep their original positions; customers collect meals at checkout.
 export const INTERACTION_ZONES: readonly InteractionZone[] = [
   ...STATIONS.filter(s => s.kind !== 'counter').map(s => ({
     id: s.id, stationId: s.id, name: s.name,
@@ -38,7 +38,6 @@ export const INTERACTION_ZONES: readonly InteractionZone[] = [
   })),
   { id: 'deposit', stationId: 'counter', name: 'Depositar', role: 'deposit', position: { x: 520, y: 238 } },
   { id: 'checkout', stationId: 'counter', name: 'Caja', role: 'checkout', position: { x: 650, y: 301 } },
-  { id: 'pickup', stationId: 'counter', name: 'Recoger pedidos', role: 'pickup', position: { x: 780, y: 236 } },
 ];
 export const CUSTOMER_LAYOUT = {
   entry: { x: 426, y: 592 }, inside: { x: 444, y: 555 }, exit: { x: 476, y: 592 },
@@ -47,7 +46,13 @@ export const QUEUE_POINTS = {
   'dine-in': [{ x: 570, y: 350 }, { x: 520, y: 350 }, { x: 470, y: 350 }],
   takeaway: [{ x: 694, y: 350 }, { x: 742, y: 350 }, { x: 790, y: 350 }],
 } as const;
-export const TABLE_POSITIONS: Readonly<Record<string, { seat: Point; waiting: Point }>> = {
-  'table-1': { seat: { x: 395, y: 438 }, waiting: { x: 404, y: 494 } },
-  'table-2': { seat: { x: 716, y: 438 }, waiting: { x: 725, y: 499 } },
+export const TABLE_POSITIONS: Readonly<Record<string, { seat: Point }>> = {
+  'table-1': { seat: { x: 395, y: 438 } },
+  'table-2': { seat: { x: 716, y: 438 } },
+};
+
+// One distinct waiting position per reservable table, beside checkout and outside both queues.
+export const CLEANING_WAIT_POINTS: Readonly<Record<string, Point>> = {
+  'table-1': { x: 780, y: 185 },
+  'table-2': { x: 780, y: 278 },
 };

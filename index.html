@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#315e50" />
-    <meta name="description" content="Warung Kita: prepara nasi goreng en tu pequeño restaurante. Prototipo de cocina, clientes y servicio manual." />
+    <meta name="description" content="Warung Kita: prepara nasi goreng en tu pequeño restaurante. Prototipo de cocina, autoservicio y limpieza." />
     <link rel="icon" href="data:," />
     <title>Warung Kita · Tu pequeño restaurante</title>
   </head>
@@ -19,13 +19,13 @@
         <div class="status-strip">
           <div class="status-chip"><span>INVENTARIO</span><strong id="carried-status">Ingredientes 0/4 · Platos 0/4 · Residuos 0/4</strong></div>
           <div class="status-chip"><span>HORNILLO</span><strong id="stove-status">Vacío</strong></div>
-          <div class="status-chip"><span>MOSTRADOR</span><strong id="counter-status">0 libre · 0 reserv.</strong></div>
+          <div class="status-chip"><span>MOSTRADOR</span><strong id="counter-status">0 disponibles</strong></div>
           <div class="status-chip"><span>CAJA</span><strong id="money-status">0 monedas</strong></div>
         </div>
         <p id="queue-status" class="queue-status">En fila · aquí 0 · llevar 0</p>
       </div>
       <div id="pause-notice" class="pause-notice" hidden>En pausa · vuelve al local para continuar</div>
-      <div class="context" aria-live="polite" aria-atomic="true"><strong id="station-name">Cocina · cobra · sirve · limpia</strong><p id="interaction-hint">Acércate al frigorífico y quédate quieto.</p></div>
+      <div class="context" aria-live="polite" aria-atomic="true"><strong id="station-name">Cocina · cobra · limpia</strong><p id="interaction-hint">Acércate al frigorífico y quédate quieto.</p></div>
       <p id="interaction-message" class="message" role="status" aria-live="polite" aria-atomic="true" hidden></p>
       <div id="drag-indicator" aria-hidden="true" hidden><span id="drag-knob"></span></div>
     </main>

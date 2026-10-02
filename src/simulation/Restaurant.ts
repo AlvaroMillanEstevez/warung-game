@@ -1,5 +1,5 @@
 import { CUSTOMERS } from '../config.ts';
-import { CUSTOMER_LAYOUT, QUEUE_POINTS, STATIONS, TABLE_POSITIONS } from '../world/layout.ts';
+import { CLEANING_WAIT_POINTS, CUSTOMER_LAYOUT, QUEUE_POINTS, STATIONS, TABLE_POSITIONS } from '../world/layout.ts';
 import type { InteractionZone, Point } from '../world/layout.ts';
 import { findPath } from '../world/navigation.ts';
 import { Production } from './Production.ts';
@@ -7,7 +7,7 @@ import type { ProductionAction } from './Production.ts';
 
 export type Intent = 'dine-in' | 'takeaway';
 export type CustomerPhase = 'entering' | 'walking-to-queue' | 'queueing' | 'walking-to-table' |
-  'waiting-cleaning' | 'walking-to-seat' | 'waiting-food' | 'eating' | 'leaving';
+  'walking-to-cleaning-wait' | 'waiting-cleaning' | 'eating' | 'leaving';
 export interface Customer {
   readonly id: string;
   readonly number: number;
@@ -19,6 +19,7 @@ export interface Customer {
   queueIndex: number;
   orderId: string | null;
   eatingElapsedMs: number;
+  carryingMeal: boolean;
 }
 export interface TableState { readonly id: string; cleanliness: 'clean' | 'dirty'; customerId: string | null }
 export interface Order {
@@ -27,13 +28,11 @@ export interface Order {
   readonly number: number;
   readonly tableId: string | null;
   readonly paidAt: number;
-  status: 'reserved' | 'carried' | 'served';
+  status: 'carried' | 'eating' | 'consumed' | 'takeaway';
 }
 export type RestaurantAction =
   | { kind: 'production'; action: ProductionAction; slotIndex?: number | undefined }
   | { kind: 'checkout'; customerId: string; tableId: string | null }
-  | { kind: 'pickup'; orderId: string }
-  | { kind: 'serve'; orderId: string; tableId: string }
   | { kind: 'clean'; tableId: string };
 export type Offer = { command: RestaurantAction; label: string } | { command: null; reason: string };
 export interface RestaurantOptions {
@@ -44,11 +43,10 @@ export interface RestaurantOptions {
 const TRANSITIONS: Record<CustomerPhase, readonly CustomerPhase[]> = {
   entering: ['walking-to-queue'],
   'walking-to-queue': ['walking-to-queue', 'queueing'],
-  queueing: ['walking-to-queue', 'walking-to-table', 'leaving'],
-  'walking-to-table': ['waiting-cleaning', 'waiting-food', 'walking-to-seat'],
-  'waiting-cleaning': ['walking-to-seat'],
-  'walking-to-seat': ['waiting-food'],
-  'waiting-food': ['eating'],
+  queueing: ['walking-to-queue', 'walking-to-table', 'walking-to-cleaning-wait', 'leaving'],
+  'walking-to-cleaning-wait': ['waiting-cleaning', 'walking-to-table'],
+  'walking-to-table': ['eating'],
+  'waiting-cleaning': ['walking-to-table'],
   eating: ['leaving'],
   leaving: [],
 };
@@ -94,7 +92,7 @@ export class Restaurant {
     const id = this.epoch + '-c' + (++this.sequence);
     const customer: Customer = {
       id, number: this.sequence, intent, phase: 'entering', position: { ...CUSTOMER_LAYOUT.entry },
-      route: [], waitingSince: null, queueIndex: this.lines[intent].length, orderId: null, eatingElapsedMs: 0,
+      route: [], waitingSince: null, queueIndex: this.lines[intent].length, orderId: null, eatingElapsedMs: 0, carryingMeal: false,
     };
     const route = findPath(customer.position, CUSTOMER_LAYOUT.inside, this.obstacles);
     if (!route) return null;
@@ -141,27 +139,12 @@ export class Restaurant {
       return { command: { kind: 'checkout', customerId: next.customer.id, tableId: next.table?.id ?? null },
         label: 'Cobrar #' + next.customer.number + (next.customer.intent === 'takeaway' ? ' · llevar' : ' · comer aquí') };
     }
-    if (zone.role === 'pickup') {
-      if (!this.production.hasMealSpace()) return { command: null, reason: 'Inventario de platos lleno.' };
-      const order = [...this.tickets.values()].filter(order => order.status === 'reserved' &&
-        this.people.get(order.customerId)?.phase === 'waiting-food').sort((a, b) => a.paidAt - b.paidAt || a.number - b.number)[0];
-      return order ? { command: { kind: 'pickup', orderId: order.id }, label: 'Recoger pedido #' + order.number + ' → ' + this.tableName(order.tableId!) } :
-        { command: null, reason: 'No hay pedidos pagados con un cliente sentado esperando.' };
-    }
     if (zone.role === 'table') {
       const table = this.seats.get(zone.stationId)!;
       if (table.cleanliness === 'dirty') return this.production.hasWasteSpace() ?
         { command: { kind: 'clean', tableId: table.id }, label: 'Recoger residuos de ' + this.tableName(table.id) } :
         { command: null, reason: 'Inventario de residuos lleno.' };
-      const order = [...this.tickets.values()].find(order => order.tableId === table.id && this.production.hasCarriedOrder(order.id));
-      if (order) {
-        const command: RestaurantAction = { kind: 'serve', orderId: order.id, tableId: table.id };
-        const problem = this.validate(command);
-        return problem ? { command: null, reason: problem } : { command, label: 'Servir pedido #' + order!.number };
-      }
-      const customer = table.customerId ? this.people.get(table.customerId) : undefined;
-      return { command: null, reason: !customer ? 'Mesa limpia, sin cliente asignado.' : customer.phase === 'eating' ? 'El cliente está comiendo.' :
-        customer.phase === 'waiting-food' ? 'Recoge su pedido pagado en el mostrador.' : 'El cliente está llegando a su mesa.' };
+      return { command: null, reason: table.customerId ? 'Mesa limpia, reservada para su cliente.' : 'Mesa limpia, sin cliente asignado.' };
     }
     const kind = STATIONS.find(s => s.id === zone.stationId)!.kind;
     const available = this.production.availableAt(kind);
@@ -177,22 +160,14 @@ export class Restaurant {
     if (command.kind === 'checkout') {
       const customer = this.people.get(command.customerId);
       if (!customer || customer.phase !== 'queueing' || customer.orderId || this.lines[customer.intent][0] !== customer.id) return 'Ese cliente ya no está listo en la caja.';
-      if (this.production.availablePortions < 1) return 'Ya no queda una ración sin reservar.';
+      if (this.production.availablePortions < 1) return 'Ya no queda una ración disponible.';
       if (customer.intent === 'dine-in') {
         const table = command.tableId ? this.seats.get(command.tableId) : undefined;
         if (!table || table.customerId !== null) return 'La mesa seleccionada ya no está disponible.';
       } else if (command.tableId !== null) return 'Un pedido para llevar no reserva mesa.';
       return null;
     }
-    const order = this.tickets.get(command.orderId);
-    if (!order || !order.tableId) return 'Ese pedido ya no está disponible.';
-    const table = this.seats.get(order.tableId)!;
-    const customer = this.people.get(order.customerId);
-    if (command.kind === 'serve' && command.tableId !== order.tableId) return 'Este plato corresponde a ' + this.tableName(order.tableId) + '.';
-    if (table.customerId !== order.customerId || table.cleanliness !== 'clean' || customer?.phase !== 'waiting-food') return 'Espera a que el cliente esté sentado en su mesa limpia.';
-    if (command.kind === 'pickup') return !this.production.hasMealSpace() ? 'Inventario de platos lleno.' :
-      order.status !== 'reserved' || !this.production.hasReservation(order.id) ? 'El pedido ya se ha recogido.' : null;
-    return order.status !== 'carried' || !this.production.hasCarriedOrder(order.id) ? 'No llevas el pedido de este cliente.' : null;
+    return 'Acción no disponible.';
   }
 
   perform(command: RestaurantAction): string | null {
@@ -201,43 +176,29 @@ export class Restaurant {
     if (command.kind === 'checkout') {
       const customer = this.people.get(command.customerId)!;
       const table = command.tableId ? this.seats.get(command.tableId)! : null;
-      const destination = table ? TABLE_POSITIONS[table.id]![table.cleanliness === 'clean' ? 'seat' : 'waiting'] : CUSTOMER_LAYOUT.exit;
+      const destination = table ? (table.cleanliness === 'clean' ? TABLE_POSITIONS[table.id]!.seat : CLEANING_WAIT_POINTS[table.id]!) : CUSTOMER_LAYOUT.exit;
       const route = findPath(customer.position, destination, this.obstacles);
       if (!route) return null; // Validate the physical route before stock, money or reservations change.
       const id = 'order-' + customer.id;
-      if (table ? !this.production.reservePortion(id) : !this.production.sellAvailable()) return null;
+      if (!this.production.sellAvailable()) return null;
       const order: Order = { id, customerId: customer.id, number: customer.number, tableId: table?.id ?? null,
-        paidAt: this.clockMs, status: table ? 'reserved' : 'served' };
+        paidAt: this.clockMs, status: table ? 'carried' : 'takeaway' };
       this.tickets.set(id, order);
       customer.orderId = id;
+      customer.carryingMeal = table !== null;
       if (table) table.customerId = customer.id;
       this.coins += this.options.price;
       this.lines[customer.intent].shift();
-      this.transition(customer, table ? 'walking-to-table' : 'leaving');
+      this.transition(customer, table ? (table.cleanliness === 'clean' ? 'walking-to-table' : 'walking-to-cleaning-wait') : 'leaving');
       customer.route = route;
       this.advanceQueue(customer.intent);
-      return '+' + this.options.price + ' monedas · #' + customer.number + (table ? ' va a ' + this.tableName(table.id) + '.' : ' se lleva su nasi goreng.');
-    }
-    if (command.kind === 'pickup') {
-      if (!this.production.collectReserved(command.orderId)) return null;
-      const order = this.tickets.get(command.orderId)!;
-      order.status = 'carried';
-      return 'Pedido #' + order.number + ' → ' + this.tableName(order.tableId!) + '.';
-    }
-    if (command.kind === 'serve') {
-      if (!this.production.deliverReserved(command.orderId)) return null;
-      const order = this.tickets.get(command.orderId)!;
-      order.status = 'served';
-      const customer = this.people.get(order.customerId)!;
-      this.transition(customer, 'eating');
-      customer.eatingElapsedMs = 0;
-      return 'Pedido servido. ¡Buen provecho!';
+      return '+' + this.options.price + ' monedas · #' + customer.number + (table ? ' recoge su plato para ' + this.tableName(table.id) + '.' : ' se lleva su nasi goreng.');
     }
     const table = this.seats.get(command.tableId)!;
     if (!this.production.collectWaste()) return null;
     table.cleanliness = 'clean'; // Assignment is deliberately independent and retained.
     const customer = table.customerId ? this.people.get(table.customerId) : undefined;
-    if (customer?.phase === 'waiting-cleaning') this.sendToSeat(customer, table.id);
+    if (customer && (customer.phase === 'waiting-cleaning' || customer.phase === 'walking-to-cleaning-wait')) this.sendToTable(customer, table.id);
     return 'Mesa limpia. Lleva los residuos a la papelera.';
   }
 
@@ -273,9 +234,9 @@ export class Restaurant {
     this.transition(customer, 'walking-to-queue');
     if (customer.route.length === 0) this.arrived(customer);
   }
-  private sendToSeat(customer: Customer, tableId: string): void {
+  private sendToTable(customer: Customer, tableId: string): void {
     customer.route = this.requireRoute(customer.position, TABLE_POSITIONS[tableId]!.seat);
-    this.transition(customer, 'walking-to-seat');
+    this.transition(customer, 'walking-to-table');
     if (customer.route.length === 0) this.arrived(customer);
   }
   private requireRoute(from: Point, to: Point): Point[] {
@@ -307,17 +268,20 @@ export class Restaurant {
         this.transition(customer, 'queueing');
         customer.waitingSince ??= this.clockMs;
         break;
-      case 'walking-to-table': {
+      case 'walking-to-cleaning-wait': {
         const table = this.seats.get(this.tickets.get(customer.orderId!)!.tableId!)!;
         if (table.cleanliness === 'dirty') this.transition(customer, 'waiting-cleaning');
-        else {
-          const seat = TABLE_POSITIONS[table.id]!.seat;
-          if (Math.hypot(customer.position.x - seat.x, customer.position.y - seat.y) > 0.1) this.sendToSeat(customer, table.id);
-          else this.transition(customer, 'waiting-food');
-        }
+        else this.sendToTable(customer, table.id);
         break;
       }
-      case 'walking-to-seat': this.transition(customer, 'waiting-food'); break;
+      case 'walking-to-table': {
+        const order = this.tickets.get(customer.orderId!)!;
+        this.transition(customer, 'eating');
+        customer.carryingMeal = false;
+        customer.eatingElapsedMs = 0;
+        order.status = 'eating';
+        break;
+      }
       case 'leaving':
         if (customer.orderId) this.tickets.delete(customer.orderId);
         this.people.delete(customer.id);
@@ -329,6 +293,7 @@ export class Restaurant {
     const table = this.seats.get(order.tableId!)!;
     const route = findPath(customer.position, CUSTOMER_LAYOUT.exit, this.obstacles);
     if (!route) return;
+    order.status = 'consumed';
     table.cleanliness = 'dirty'; table.customerId = null;
     this.transition(customer, 'leaving');
     customer.route = route;

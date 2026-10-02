@@ -15,11 +15,12 @@ export const CUSTOMERS = {
   arrivalMs: 8000, dineInChance: 0.5, maxCustomers: 10, maxQueueLength: 3,
   speed: 90, eatingMs: 6000, price: 10,
 } as const;
-export const CONTROLS = { dragDeadZone: 10, dragMaxDistance: 58, stationaryTolerance: 0.06 } as const;
+export const CONTROLS = { dragDeadZone: 12, dragMaxDistance: 76, responseExponent: 1.25 } as const;
+export const EXTERIOR = { padding: 64, treeSpacing: 170 } as const;
+export const CARGO_FEEDBACK = { durationMs: 650, rise: 14 } as const;
 export const CAMERA = {
-  bounds: { x: 46, y: 56, width: 788, height: 554 },
+  viewSize: { width: 788, height: 554 }, // Framing scale, not movement or camera bounds.
   minimumZoom: 1.15,
-  followLerp: 0.12,
   headOffset: 24,
 } as const;
 export const COLORS = {

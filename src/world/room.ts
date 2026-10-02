@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
-import { COLORS as C, ROOM, WORLD } from '../config';
-import { QUEUE_POINTS, TABLE_POSITIONS } from './layout';
+import { COLORS as C, EXTERIOR, ROOM, WORLD } from '../config';
+import { CLEANING_WAIT_POINTS, QUEUE_POINTS, TABLE_POSITIONS } from './layout';
+import type { Rect } from './layout';
 
 export function drawRoom(scene: Phaser.Scene): void {
   const g = scene.add.graphics().setDepth(-100);
@@ -45,10 +46,12 @@ export function drawRoom(scene: Phaser.Scene): void {
       fontFamily: 'Arial, sans-serif', fontSize: '10px', color: intent === 'takeaway' ? '#995336' : '#315e50',
     }).setOrigin(0.5, 0).setDepth(-90);
   }
-  for (const { seat, waiting } of Object.values(TABLE_POSITIONS)) {
+  for (const { seat } of Object.values(TABLE_POSITIONS)) {
     g.fillStyle(C.woodDark).fillRoundedRect(seat.x - 11, seat.y - 5, 22, 10, 3);
     g.fillStyle(C.woodLight).fillEllipse(seat.x, seat.y - 8, 28, 15);
-    g.lineStyle(1, C.coral, 0.3).strokeEllipse(waiting.x, waiting.y, 23, 11);
+  }
+  for (const point of Object.values(CLEANING_WAIT_POINTS)) {
+    g.lineStyle(1, C.coral, 0.65).strokeEllipse(point.x, point.y, 26, 13);
   }
   // Wall window.
   g.fillStyle(C.woodDark).fillRoundedRect(660, 72, 126, 46, 3);
@@ -66,4 +69,26 @@ export function drawRoom(scene: Phaser.Scene): void {
   // A little foliage above the sill, outside the playable floor.
   g.fillStyle(C.coral).fillRoundedRect(751, 101, 18, 14, 2);
   g.fillStyle(C.green).fillEllipse(752, 97, 14, 8).fillEllipse(769, 92, 14, 8).fillEllipse(760, 86, 8, 20);
+}
+
+export function drawExterior(g: Phaser.GameObjects.Graphics, bounds: Rect): void {
+  g.clear().fillStyle(0xa9b981).fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+  // Decorative only: ROOM remains the sole movement boundary.
+  g.fillStyle(0xbdbca9).fillRect(bounds.x, 666, bounds.width, 134);
+  g.fillStyle(0x777f77).fillRect(bounds.x, 684, bounds.width, 98);
+  for (let x = Math.floor(bounds.x / 90) * 90; x < bounds.x + bounds.width; x += 90) {
+    g.fillStyle(C.cream, 0.6).fillRect(x, 730, 42, 4);
+  }
+  g.fillStyle(0xd5d0b9).fillRoundedRect(12, 24, 856, 626, 12);
+  g.lineStyle(2, 0xb7baa1).strokeRoundedRect(20, 32, 840, 610, 10);
+  const spacing = EXTERIOR.treeSpacing;
+  for (let y = Math.floor(bounds.y / spacing) * spacing; y < bounds.y + bounds.height; y += spacing) {
+    for (let x = Math.floor(bounds.x / spacing) * spacing; x < bounds.x + bounds.width; x += spacing) {
+      if ((x > -60 && x < 950 && y > -50 && y < 850) || (y > 620 && y < 850)) continue;
+      g.fillStyle(C.shadow, 0.12).fillEllipse(x + 9, y + 15, 57, 26);
+      g.fillStyle(C.woodDark).fillRect(x - 4, y - 9, 8, 27);
+      g.fillStyle(C.green).fillCircle(x - 13, y - 14, 22).fillCircle(x + 13, y - 13, 21);
+      g.fillStyle(C.greenLight).fillCircle(x, y - 29, 25);
+    }
+  }
 }

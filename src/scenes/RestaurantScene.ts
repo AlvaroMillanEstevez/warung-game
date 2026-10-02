@@ -10,7 +10,7 @@ import { closestZone } from '../world/interaction';
 import { INTERACTION_ZONES, STATIONS } from '../world/layout';
 import type { InteractionZone } from '../world/layout';
 import { frameRestaurant } from '../world/camera';
-import { drawRoom } from '../world/room';
+import { drawExterior, drawRoom } from '../world/room';
 import { Station } from '../world/Station';
 import { InteractionMarker } from '../world/InteractionMarker';
 
@@ -20,6 +20,7 @@ function setText(element: HTMLElement, text: string): void {
 
 export class RestaurantScene extends Phaser.Scene {
   private player!: Player;
+  private exterior!: Phaser.GameObjects.Graphics;
   private controls!: Controls;
   private stations: Station[] = [];
   private markers: InteractionMarker[] = [];
@@ -44,6 +45,7 @@ export class RestaurantScene extends Phaser.Scene {
   constructor() { super('Restaurant'); }
 
   create(): void {
+    this.exterior = this.add.graphics().setDepth(-200);
     drawRoom(this);
     this.stations = STATIONS.map(data => new Station(this, data));
     this.markers = INTERACTION_ZONES.map(data => new InteractionMarker(this, data));
@@ -103,7 +105,9 @@ export class RestaurantScene extends Phaser.Scene {
       inside, this.controls.tryingToMove, activeDelta,
     );
     if (completed && this.pending) {
+      const before = this.restaurant.production.inventory;
       const message = this.restaurant.perform(this.pending.command);
+      this.player.showTransfer(before, this.restaurant.production.inventory);
       if (message) this.showMessage(message);
       this.pending = null;
     }
@@ -123,6 +127,7 @@ export class RestaurantScene extends Phaser.Scene {
   private readonly resetTest = (): void => {
     this.controls.reset();
     this.restaurant.reset();
+    this.player.clearFeedback();
     this.dwell.reset();
     this.pending = null;
     this.selected = null;
@@ -138,7 +143,8 @@ export class RestaurantScene extends Phaser.Scene {
   private resizeCamera(): void {
     if (!this.player) return;
     this.controls.reset();
-    frameRestaurant(this.cameras.main, this.scale.width, this.scale.height, this.player.position);
+    const bounds = frameRestaurant(this.cameras.main, this.scale.width, this.scale.height, this.player.position);
+    drawExterior(this.exterior, bounds);
   }
 
   private showMessage(message: string): void {
@@ -174,17 +180,13 @@ export class RestaurantScene extends Phaser.Scene {
       view.update(customer);
     }
     const inventory = production.inventory;
-    const assigned = inventory.orderMeals.map(id => {
-      const order = restaurant.order(id)!;
-      return '#' + order.number + '→M' + order.tableId!.slice(-1);
-    }).join(', ');
     setText(this.carriedElement, 'Ingredientes ' + inventory.ingredients + '/' + inventory.limits.ingredients +
       ' · Platos ' + inventory.meals + '/' + inventory.limits.meals +
-      ' · Residuos ' + inventory.waste + '/' + inventory.limits.waste + (assigned ? ' · ' + assigned : ''));
+      ' · Residuos ' + inventory.waste + '/' + inventory.limits.waste);
     const state = production.stoveSummary;
     setText(this.stoveElement, state.cooking + ' cocinando · ' + state.ready + ' listas');
     this.stoveElement.parentElement!.classList.toggle('ready', state.ready > 0);
-    setText(this.counterElement, production.availablePortions + ' libre · ' + production.reservedPortions + ' reserv.');
+    setText(this.counterElement, production.availablePortions + ' disponibles');
     this.counterElement.parentElement!.classList.toggle('ready', production.availablePortions > 0);
     setText(this.moneyElement, restaurant.money + ' monedas');
     setText(this.queueElement, 'En fila · aquí ' + restaurant.queue('dine-in').length + ' · llevar ' + restaurant.queue('takeaway').length);
@@ -193,7 +195,7 @@ export class RestaurantScene extends Phaser.Scene {
     if (available && !available.command) hint = available.reason;
     else if (available?.command) hint = available.label + ' · quédate quieto ' + INTERACTION.dwellMs / 1000 + ' s.';
     else hint = matchMedia('(pointer: coarse)').matches ? 'Arrastra para moverte; quédate quieto en los puntos de acción.' : 'WASD o flechas; quédate quieto en los puntos de acción.';
-    setText(this.nameElement, this.selected?.name ?? 'Cocina · cobra · sirve · limpia');
+    setText(this.nameElement, this.selected?.name ?? 'Cocina · cobra · limpia');
     setText(this.hintElement, hint);
   }
 }

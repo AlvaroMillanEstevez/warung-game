@@ -1,4 +1,5 @@
 import { CONTROLS } from '../config';
+import { dragVector } from './drag';
 import type { Point } from '../world/layout';
 
 const MOVE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight']);
@@ -107,8 +108,7 @@ export class Controls {
     const dy = event.clientY - this.origin.y;
     const length = Math.hypot(dx, dy);
     const factor = length > CONTROLS.dragMaxDistance ? CONTROLS.dragMaxDistance / length : 1;
-    const power = Math.max(0, Math.min(1, (length - CONTROLS.dragDeadZone) / (CONTROLS.dragMaxDistance - CONTROLS.dragDeadZone)));
-    this.touch = power <= CONTROLS.stationaryTolerance ? { x: 0, y: 0 } : { x: dx / length * power, y: dy / length * power };
+    this.touch = dragVector(this.origin, { x: event.clientX, y: event.clientY });
     this.knob.style.transform = 'translate(' + dx * factor + 'px, ' + dy * factor + 'px)';
     if (this.tryingToMove) this.onCancel();
   }

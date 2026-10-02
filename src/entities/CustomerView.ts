@@ -27,7 +27,7 @@ export class CustomerView {
     this.shadow.setPosition(x, y + 2);
     if (this.lastPhase === customer.phase) return;
     this.lastPhase = customer.phase;
-    const seated = customer.phase === 'waiting-food' || customer.phase === 'eating';
+    const seated = customer.phase === 'eating';
     const g = this.body.clear();
     g.fillStyle(C.woodDark).fillRoundedRect(-9, -10, 7, 12, 3).fillRoundedRect(2, -10, 7, 12, 3);
     g.fillStyle(customer.intent === 'takeaway' ? C.coral : C.green).fillRoundedRect(-13, -30, 26, seated ? 27 : 23, 7);
@@ -38,8 +38,14 @@ export class CustomerView {
       g.fillStyle(C.cream).fillRoundedRect(8, -17, 14, 17, 2);
       g.lineStyle(2, C.wood).strokeRoundedRect(11, -21, 8, 7, 2);
     }
-    const status = customer.phase === 'waiting-cleaning' ? '\nLimpiar mesa' :
-      customer.phase === 'waiting-food' ? '\nEspera plato' : customer.phase === 'eating' ? '\nComiendo' : '';
+    if (customer.carryingMeal) {
+      g.fillStyle(C.cream).fillEllipse(14, -13, 23, 12);
+      g.fillStyle(C.woodLight).fillEllipse(14, -14, 17, 8);
+      g.fillStyle(C.cream).fillEllipse(16, -15, 8, 5);
+      g.fillStyle(C.gold).fillCircle(16, -15, 2);
+    }
+    const status = customer.phase === 'waiting-cleaning' || customer.phase === 'walking-to-cleaning-wait' ? '\nEspera limpieza' :
+      customer.phase === 'eating' ? '\nComiendo' : '';
     this.label.setText((customer.intent === 'takeaway' ? 'LLEVAR\n#' : 'AQUÍ #') + customer.number + status);
   }
 

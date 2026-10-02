@@ -54,53 +54,38 @@ test('Prioriza recogida, después carga; cargar con platos llenos y posición va
   assert.equal(p.availableAt('stove').action, 'start-cooking');
   assert.equal(p.inventory.meals, 4);
 });
-test('Capacidades independientes, platos libres y pedidos comparten límite sin perder identidad', () => {
+test('Capacidades independientes de ingredientes, platos y residuos sin distinciones de pedido', () => {
   const p = new Production();
-  cookOne(p); p.perform('store-meal'); p.reservePortion('paid-1');
-  cookOne(p); p.perform('store-meal'); p.reservePortion('paid-2');
-  for (let i = 0; i < 3; i++) cookOne(p);
+  for (let i = 0; i < 4; i++) cookOne(p);
   for (let i = 0; i < 4; i++) { p.perform('take-ingredients'); assert.ok(p.collectWaste()); }
-  assert.ok(p.collectReserved('paid-1'));
-  assert.equal(p.collectReserved('paid-1'), false);
-  assert.equal(p.collectReserved('paid-2'), false);
-  assert.equal(p.inventory.ingredients, 4);
-  assert.equal(p.inventory.meals, 4);
-  assert.equal(p.inventory.waste, 4);
-  assert.equal(p.collectWaste(), false);
-  assert.equal(p.perform('take-ingredients'), null);
-  assert.ok(p.perform('store-meal'));
-  assert.ok(p.collectReserved('paid-2'));
-  assert.deepEqual(p.inventory.orderMeals, ['paid-1', 'paid-2']);
-  assert.equal(p.deliverReserved('wrong'), false);
-  assert.ok(p.deliverReserved('paid-1'));
-  assert.equal(p.deliverReserved('paid-1'), false);
-  assert.deepEqual(p.inventory.orderMeals, ['paid-2']);
+  assert.deepEqual(p.inventory, { ingredients: 4, meals: 4, waste: 4, limits: p.limits });
+  assert.equal(p.collectWaste(), false); assert.equal(p.perform('take-ingredients'), null);
+  p.perform('start-cooking'); p.update(4000);
+  assert.equal(p.perform('take-meal'), null);
+  p.perform('store-meal');
+  assert.ok(p.perform('take-meal')); assert.equal(p.inventory.meals, 4);
 });
-test('Mostrador sin límite y papelera solo residuos: conserva ingredientes y todos los platos', () => {
+test('Mostrador sin límite; papelera solo residuos y venta descuenta una ración', () => {
   const p = new Production();
   for (let i = 0; i < 12; i++) { cookOne(p); assert.ok(p.perform('store-meal')); }
-  assert.equal(p.availablePortions, 12);
-  assert.equal(p.perform('store-meal'), null);
-  p.reservePortion('paid'); p.collectReserved('paid');
+  assert.equal(p.availablePortions, 12); assert.equal(p.perform('store-meal'), null);
   cookOne(p); p.perform('take-ingredients');
   for (let i = 0; i < 4; i++) p.collectWaste();
   const before = p.inventory;
   for (let i = 0; i < 4; i++) assert.ok(p.perform('discard'));
-  assert.equal(p.perform('discard'), null);
+  assert.equal(p.perform('discard'), null); assert.deepEqual(p.inventory, { ...before, waste: 0 });
+  for (let i = 0; i < 12; i++) assert.ok(p.sellAvailable());
+  assert.equal(p.sellAvailable(), false); assert.equal(p.availablePortions, 0);
   assert.deepEqual(p.inventory, { ...before, waste: 0 });
-  p.perform('store-meal');
-  assert.equal(p.perform('store-meal'), null);
-  assert.deepEqual(p.inventory.orderMeals, ['paid']);
 });
 test('Los límites y el tiempo son configurables y el reinicio vacía toda la producción', () => {
   const p = new Production({ inventory: { ingredients: 2, meals: 1, waste: 3 }, stoveSlots: 2, cookingMs: 500 });
-  cookOne(p); p.perform('store-meal'); p.reservePortion('paid'); p.collectReserved('paid');
+  cookOne(p); p.perform('store-meal'); cookOne(p);
   p.perform('take-ingredients'); p.perform('start-cooking'); p.collectWaste();
   p.reset(); p.update(10000);
-  assert.deepEqual(p.inventory, { ingredients: 0, freeMeals: 0, meals: 0, orderMeals: [], waste: 0, limits: p.limits });
+  assert.deepEqual(p.inventory, { ingredients: 0, meals: 0, waste: 0, limits: p.limits });
   assert.deepEqual(p.stoveSummary, { empty: 2, cooking: 0, ready: 0 });
-  assert.equal(p.portions, 0);
-  assert.equal(p.reservedOrderIds.length, 0);
+  assert.equal(p.availablePortions, 0);
 });
 test('Hornillo encadena carga y recogida quieto; cada acción requiere un ciclo nuevo', () => {
   const p = new Production(), dwell = new DwellInteraction();

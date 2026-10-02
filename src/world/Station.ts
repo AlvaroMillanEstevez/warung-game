@@ -97,7 +97,7 @@ export class Station {
     const customer = table?.customerId ? restaurant.customer(table.customerId) : undefined;
     const slots = production.stove;
     const stoveKey = slots.map(slot => slot.status === 'cooking' ? Math.round(slot.elapsedMs / production.cookingMs * 100) : slot.status).join(',');
-    const key = [stoveKey, production.availablePortions, production.reservedPortions,
+    const key = [stoveKey, production.availablePortions,
       table?.cleanliness, customer?.id, customer?.phase].join(':');
     if (key === this.lastProductionKey) return;
     this.lastProductionKey = key;
@@ -137,9 +137,9 @@ export class Station {
         }
       }
     } else {
-      this.statusLabel.setText(production.availablePortions + ' disponibles · ' + production.reservedPortions + ' reservadas');
+      this.statusLabel.setText(production.availablePortions + ' disponibles');
       // Stock has no cap; artwork stays bounded regardless of the total.
-      for (let i = 0; i < Math.min(production.portions, 8); i++) {
+      for (let i = 0; i < Math.min(production.availablePortions, 8); i++) {
         const px = 30 + (i % 4) * 28;
         const py = -lift + 23 + Math.floor(i / 4) * 16;
         g.fillStyle(C.cream).fillEllipse(px, py, 25, 13);
@@ -147,7 +147,6 @@ export class Station {
         g.fillStyle(C.cream).fillEllipse(px + 2, py - 2, 8, 6);
         g.fillStyle(C.gold).fillCircle(px + 2, py - 2, 2);
         g.fillStyle(C.green).fillCircle(px - 5, py, 1.5);
-        if (i >= production.availablePortions) g.lineStyle(2, C.coral).strokeEllipse(px, py, 27, 15);
       }
     }
   }
