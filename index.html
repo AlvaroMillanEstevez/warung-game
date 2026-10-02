@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f4f0e6" />
+    <meta name="description" content="Warung Kita: un pequeño restaurante indonesio que empieza contigo. Prototipo de exploración." />
+    <link rel="icon" href="data:," />
+    <title>Warung Kita · Tu pequeño restaurante</title>
+  </head>
+  <body>
+    <main class="app">
+      <header class="masthead">
+        <div class="brand"><span class="brand-mark" aria-hidden="true">w<span>k</span></span><div><h1>warung kita<span>.</span></h1><p>Un pequeño restaurante que empieza contigo.</p></div></div>
+        <span class="milestone"><span aria-hidden="true"></span> HITO 01 <b>El local</b></span>
+      </header>
+      <section class="game-shell" aria-label="Restaurante Warung Kita">
+        <div class="room-caption"><span>SELAMAT DATANG <span aria-hidden="true">/</span> BIENVENIDO</span><span class="caption-right">Haz de este rincón tu lugar.</span></div>
+        <div id="game" tabindex="0" role="application" aria-label="Local del restaurante. Muévete con WASD o flechas, interactúa con E." aria-describedby="instructions"></div>
+        <div id="pause-notice" class="pause-notice" hidden>Juego en pausa · vuelve al local para continuar</div>
+        <div class="interaction-bar">
+          <span class="interaction-icon" aria-hidden="true">↗</span>
+          <div><strong id="station-name">Conoce tu warung</strong><p id="interaction-hint">Acércate a los puntos junto a los muebles.</p></div>
+          <span class="desktop-key"><kbd>E</kbd> interactuar</span>
+        </div>
+      </section>
+      <div class="touch-controls" aria-label="Controles táctiles">
+        <div class="joystick-group"><div id="joystick" role="group" aria-label="Joystick de movimiento"><span class="joystick-cross" aria-hidden="true"></span><span id="joystick-knob" aria-hidden="true"></span></div><span class="control-label">MOVER</span></div>
+        <div class="touch-action"><button id="interact-button" type="button" disabled aria-label="Interactuar con estación cercana"><span aria-hidden="true">↗</span><span>Interactuar</span></button><span class="control-label">EXPLORA EL LOCAL</span></div>
+      </div>
+      <footer class="footer"><p id="instructions"><span class="desktop-instructions"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span class="or">o</span><span class="arrows">↑ ← ↓ →</span> para moverte <span class="divider">·</span> <kbd>E</kbd> para interactuar</span><span class="touch-instructions">Mueve el joystick y acércate a una estación.</span></p><span class="prototype-note">Pasito a pasito, un warung propio.</span></footer>
+      <p id="interaction-message" class="message" role="status" aria-live="polite" aria-atomic="true">Tu local está listo para explorar.</p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

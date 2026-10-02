@@ -1,0 +1,118 @@
+:root {
+  font-family: "Trebuchet MS", Arial, sans-serif;
+  color: #334e42;
+  background: #f4f0e6;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 280px; overscroll-behavior: none; }
+button { font: inherit; }
+.app { width: min(1080px, 100%); margin: 0 auto; padding: 28px 40px 18px; }
+.masthead { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 24px; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark { flex: 0 0 auto; display: grid; place-content: center; width: 50px; height: 50px; border: 1px solid #b8bfa9; border-radius: 50%; color: #315e50; font: italic 25px/0.6 Georgia, serif; padding-bottom: 10px; }
+.brand-mark span { margin-left: 15px; }
+h1 { font: bold 37px/1 Georgia, "Times New Roman", serif; letter-spacing: -1.7px; margin: 0; }
+h1 > span { color: #c56346; }
+.brand p { font-size: 12px; color: #7b8270; margin: 8px 0 0; }
+.milestone { display: inline-flex; align-items: center; gap: 8px; color: #77826e; font-size: 10px; letter-spacing: 1.3px; white-space: nowrap; }
+.milestone > span { width: 6px; height: 6px; border-radius: 50%; background: #c56346; }
+.milestone b { color: #425c4b; border-left: 1px solid #cfcfbb; margin-left: 4px; padding-left: 12px; font-size: 12px; letter-spacing: 0; font-weight: normal; }
+.game-shell { position: relative; background: #e7e4d5; border: 1px solid #d4d6c3; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 28px #36443108; }
+.room-caption { padding: 17px 25px 0; display: flex; justify-content: space-between; gap: 10px; font-size: 9px; letter-spacing: 1.6px; color: #6e7c66; }
+.room-caption > span > span { padding: 0 8px; color: #adad91; }
+.caption-right { font-family: Georgia, serif; font-size: 12px; font-style: italic; letter-spacing: 0; }
+#game { width: 100%; height: min(650px, calc(100dvh - 316px)); min-height: 280px; outline: none; touch-action: none; }
+#game:focus-visible { outline: 2px solid #428b68; outline-offset: -3px; }
+canvas { display: block; touch-action: none; }
+.interaction-bar { min-height: 76px; padding: 15px 25px; display: flex; align-items: center; gap: 15px; background: #f9f6ed; border-top: 1px solid #d7d9c7; }
+.interaction-icon { display: grid; place-items: center; border-radius: 50%; background: #e8eddf; width: 35px; height: 35px; flex-shrink: 0; font-size: 23px; color: #52755b; }
+.interaction-bar strong { font-size: 14px; font-weight: 600; }
+.interaction-bar p { margin: 5px 0 0; font-size: 12px; color: #7d8374; }
+.desktop-key { margin-left: auto; display: flex; gap: 8px; align-items: center; font-size: 11px; color: #7d8374; }
+kbd { display: inline-grid; place-items: center; min-width: 23px; height: 25px; padding: 0 4px; background: #faf7f0; border: 1px solid #d8d8c8; border-bottom-width: 2px; border-radius: 5px; font: 11px "Trebuchet MS", sans-serif; color: #586c58; }
+.footer { display: flex; justify-content: space-between; align-items: center; gap: 15px; font-size: 11px; color: #7c8272; margin-top: 17px; }
+.footer p { margin: 0; }
+.desktop-instructions { display: flex; align-items: center; gap: 4px; }
+.or { padding: 0 6px; }
+.arrows { padding: 0 5px; font-size: 16px; color: #586c58; }
+.divider { margin: 0 10px; color: #acb49d; }
+.prototype-note { font: italic 12px Georgia, serif; }
+.message { text-align: center; color: #858b79; font-size: 12px; min-height: 18px; margin: 15px 0 0; transition: color 0.15s; }
+.message.success { color: #315e50; font-weight: 600; }
+.pause-notice { position: absolute; top: 45%; left: 50%; transform: translate(-50%, -50%); padding: 14px 20px; background: #fff7e7f5; box-shadow: 0 4px 20px #244a4020; border: 1px solid #bbc8aa; border-radius: 10px; font-size: 13px; text-align: center; width: max-content; max-width: 90%; pointer-events: none; }
+.touch-controls, .touch-instructions { display: none; }
+@media (pointer: coarse), (any-pointer: coarse), (max-width: 700px) {
+  .app { padding: max(15px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(15px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+  .masthead { margin-bottom: 15px; }
+  .brand { gap: 10px; }
+  .brand-mark { width: 39px; height: 39px; font-size: 21px; }
+  h1 { font-size: 29px; }
+  .brand p { font-size: 10px; margin-top: 5px; }
+  .milestone { font-size: 8px; letter-spacing: 0.7px; }
+  .milestone b { display: none; }
+  .room-caption { padding: 12px 15px 0; font-size: 8px; letter-spacing: 1px; }
+  .caption-right { display: none; }
+  #game { height: auto; min-height: 0; aspect-ratio: 880 / 650; max-height: 60dvh; }
+  .interaction-bar { padding: 12px 14px; gap: 10px; min-height: 70px; }
+  .interaction-bar strong { font-size: 13px; }
+  .interaction-bar p { font-size: 11px; line-height: 1.4; }
+  .desktop-key, .desktop-instructions, .prototype-note { display: none; }
+  .touch-instructions { display: inline; }
+  .touch-controls { display: flex; justify-content: space-between; align-items: center; padding: 18px 25px 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .joystick-group, .touch-action { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #joystick { position: relative; display: grid; place-items: center; width: 116px; height: 116px; border-radius: 50%; border: 1px solid #c4cdb7; background: #e6eadc; touch-action: none; box-shadow: inset 0 2px 9px #315e500a; }
+  #joystick::after { position: absolute; inset: 13px; border: 1px dashed #b6c2a9; border-radius: 50%; content: ""; pointer-events: none; }
+  .joystick-cross::before, .joystick-cross::after { position: absolute; background: #c8d2bd; content: ""; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+  .joystick-cross::before { width: 84px; height: 1px; }
+  .joystick-cross::after { height: 84px; width: 1px; }
+  #joystick-knob { position: absolute; width: 48px; height: 48px; border: 1px solid #39634e; background: #64836a; border-radius: 50%; box-shadow: 0 4px 0 #315e5025, inset 0 1px 0 #ffffff55; pointer-events: none; z-index: 1; }
+  #joystick.active #joystick-knob { background: #3c6c52; }
+  .control-label { font-size: 8px; letter-spacing: 1.5px; color: #87907c; }
+  #interact-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 98px; height: 98px; border-radius: 50%; background: #315e50; color: #fff7e7; border: 1px solid #244a40; box-shadow: 0 4px 0 #244a4025; touch-action: none; }
+  #interact-button > span:first-child { font-size: 26px; }
+  #interact-button > span:last-child { font-size: 10px; }
+  #interact-button:disabled { color: #95a08a; background: #e5e8dc; border-color: #cfd6c2; box-shadow: 0 3px 0 #315e5008; }
+  #interact-button:active:not(:disabled) { transform: translateY(2px); box-shadow: none; }
+  .footer { justify-content: center; margin-top: 16px; font-size: 10px; }
+  .message { font-size: 11px; margin-top: 10px; }
+}
+@media (max-width: 360px) {
+  .app { padding-left: 8px; padding-right: 8px; }
+  h1 { font-size: 26px; }
+  .brand p { max-width: 190px; font-size: 9px; }
+  .milestone { font-size: 7px; gap: 4px; }
+  .touch-controls { padding-top: 12px; }
+}
+@media (orientation: landscape) and (max-height: 560px) and (max-width: 1100px) {
+  .app { display: grid; grid-template-columns: minmax(0, 1fr) 145px; gap: 8px 16px; padding: 8px 16px; }
+  .masthead { grid-column: 1 / -1; margin: 0; }
+  h1 { font-size: 25px; }
+  .brand p, .brand-mark, .room-caption, .footer { display: none; }
+  .game-shell { grid-column: 1; }
+  #game { height: calc(100dvh - 132px); min-height: 0; max-height: none; aspect-ratio: auto; }
+  .interaction-bar { min-height: 53px; padding: 7px 14px; }
+  .interaction-bar p { margin-top: 2px; font-size: 10px; }
+  .interaction-icon { width: 28px; height: 28px; }
+  .touch-controls { display: flex; grid-column: 2; flex-direction: column; justify-content: center; gap: 16px; padding: 0; }
+  #joystick { width: 104px; height: 104px; }
+  #interact-button { width: 76px; height: 76px; }
+  .control-label { font-size: 7px; }
+  .joystick-group, .touch-action { gap: 7px; }
+  .message { grid-column: 1 / -1; margin: 0; font-size: 10px; }
+}
+
+/* Keep the message visible on compact portrait phones, without shrinking touch targets below 98px. */
+@media (max-width: 700px) and (max-height: 650px) and (orientation: portrait) {
+  .app { padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+  .brand p { display: none; }
+  .masthead { margin-bottom: 11px; }
+  .touch-controls { padding-top: 8px; }
+  #joystick { width: 104px; height: 104px; }
+  .joystick-group, .touch-action { gap: 7px; }
+  .footer { margin-top: 10px; }
+  .message { margin-top: 8px; }
+}
+
