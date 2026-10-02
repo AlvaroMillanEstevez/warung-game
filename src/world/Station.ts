@@ -47,9 +47,6 @@ export class Station {
             g.lineStyle(2, C.metal).strokeEllipse(bx, by, 14, 9);
           }
         }
-        g.fillStyle(C.woodDark).fillRoundedRect(66, -lift + 18, 27, 5, 2);
-        g.fillStyle(C.ink).fillEllipse(58, -lift + 19, 33, 23);
-        g.fillStyle(0x7b8d80).fillEllipse(58, -lift + 21, 22, 12);
         g.fillStyle(C.greenDark).fillRoundedRect(12, d - lift + 16, w - 24, 20, 4);
         for (const bx of [20, 40, 60, 80]) g.fillStyle(C.cream).fillCircle(bx, d - lift + 7, 3);
         break;
@@ -98,31 +95,32 @@ export class Station {
     const production = restaurant.production;
     const table = restaurant.table(this.data.id);
     const customer = table?.customerId ? restaurant.customer(table.customerId) : undefined;
-    const bucket = Math.round(production.cookingProgress * 100);
-    const key = [production.stove.status, bucket, production.availablePortions, production.reservedPortions,
+    const slots = production.stove;
+    const stoveKey = slots.map(slot => slot.status === 'cooking' ? Math.round(slot.elapsedMs / production.cookingMs * 100) : slot.status).join(',');
+    const key = [stoveKey, production.availablePortions, production.reservedPortions,
       table?.cleanliness, customer?.id, customer?.phase].join(':');
     if (key === this.lastProductionKey) return;
     this.lastProductionKey = key;
     const g = this.productionArt;
-    const { width: w, height: d } = this.data.footprint;
+
     const lift = this.data.height;
     g.clear();
     if (this.data.kind === 'stove') {
-      const state = production.stove.status;
-      this.statusLabel.setText(state === 'empty' ? 'Vacío' : state === 'cooking' ? 'Cocinando' : '¡Listo para recoger!');
-      this.statusLabel.setColor(state === 'ready' ? '#315e50' : '#6c735c');
-      if (state !== 'empty') {
-        g.fillStyle(state === 'ready' ? C.highlight : C.gold, 0.24).fillEllipse(58, -lift + 20, 46, 30);
-        g.fillStyle(C.woodLight).fillEllipse(58, -lift + 20, 23, 13);
-        g.fillStyle(C.cream).fillEllipse(60, -lift + 18, 10, 7);
-        g.fillStyle(C.gold).fillCircle(60, -lift + 18, 2.5);
-        g.fillStyle(C.green).fillCircle(52, -lift + 18, 2);
-        g.fillStyle(C.greenDark).fillRoundedRect(13, d - lift + 18, w - 26, 8, 3);
-        g.fillStyle(state === 'ready' ? C.highlight : C.gold).fillRoundedRect(15, d - lift + 20, (w - 30) * production.cookingProgress, 4, 2);
-        if (state === 'ready') {
-          g.lineStyle(3, C.highlight).lineBetween(w - 23, -lift + 10, w - 18, -lift + 15).lineBetween(w - 18, -lift + 15, w - 9, -lift + 4);
-        }
-      }
+      const state = production.stoveSummary;
+      this.statusLabel.setText(state.cooking + ' cocinando · ' + state.ready + ' listas');
+      this.statusLabel.setColor(state.ready > 0 ? '#315e50' : '#6c735c');
+      slots.forEach((slot, index) => {
+        if (slot.status === 'empty') return;
+        const x = 24 + Math.floor(index / 2) * 50, y = -lift + 16 + (index % 2) * 25;
+        const ready = slot.status === 'ready';
+        g.fillStyle(ready ? C.highlight : C.gold, 0.35).fillEllipse(x, y, 30, 22);
+        g.fillStyle(C.woodLight).fillEllipse(x, y, 20, 12);
+        g.fillStyle(C.cream).fillEllipse(x + 2, y - 2, 9, 6);
+        g.fillStyle(C.gold).fillCircle(x + 2, y - 2, 2);
+        g.fillStyle(C.greenDark).fillRect(x - 12, y + 8, 24, 3);
+        g.fillStyle(ready ? C.highlight : C.gold).fillRect(x - 12, y + 8,
+          24 * (ready ? 1 : slot.elapsedMs / production.cookingMs), 3);
+      });
     } else if (this.data.kind === 'table') {
       const dirty = table!.cleanliness === 'dirty';
       this.statusLabel.setText(this.data.name + ' · ' + (dirty ? 'sucia' : 'limpia') +
@@ -139,8 +137,8 @@ export class Station {
         }
       }
     } else {
-      this.statusLabel.setText(production.portions + ' / ' + production.capacity + ' · ' + production.reservedPortions + ' reservadas');
-      // Capacity remains configurable; draw a compact stack rather than overflowing the counter.
+      this.statusLabel.setText(production.availablePortions + ' disponibles · ' + production.reservedPortions + ' reservadas');
+      // Stock has no cap; artwork stays bounded regardless of the total.
       for (let i = 0; i < Math.min(production.portions, 8); i++) {
         const px = 30 + (i % 4) * 28;
         const py = -lift + 23 + Math.floor(i / 4) * 16;

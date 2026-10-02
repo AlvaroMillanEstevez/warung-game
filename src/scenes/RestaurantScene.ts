@@ -79,18 +79,22 @@ export class RestaurantScene extends Phaser.Scene {
     // Every restaurant timer receives only active time, including arrivals and consumption.
     const activeDelta = this.discardNextDelta ? 0 : Math.min(Math.max(0, delta), PLAYER.maxFrameSeconds * 1000);
     this.discardNextDelta = false;
-    const previousStove = this.restaurant.production.stove;
+    const previousReady = this.restaurant.production.stoveSummary.ready;
     this.restaurant.update(activeDelta);
-    if (previousStove.status === 'cooking' && this.restaurant.production.stove.status === 'ready') this.showMessage('El nasi goreng está listo para recoger.');
+    if (this.restaurant.production.stoveSummary.ready > previousReady) this.showMessage('El nasi goreng está listo para recoger.');
     this.player.update(this.controls.movement, activeDelta, this.obstacles);
     this.selected = closestZone(this.player.position, INTERACTION_ZONES, this.obstacles);
-    if (this.pending?.zoneId !== this.selected?.id || this.controls.tryingToMove) this.pending = null;
-    if (!this.pending && this.selected && !this.controls.tryingToMove && !this.dwell.needsExit(this.selected.id)) {
+    if (this.pending && (this.pending.zoneId !== this.selected?.id || this.controls.tryingToMove ||
+        this.restaurant.validate(this.pending.command))) {
+      this.pending = null;
+      this.dwell.cancel();
+    }
+    if (!this.pending && this.selected && !this.controls.tryingToMove) {
       const offer = this.restaurant.offer(this.selected);
       if (offer.command) this.pending = { zoneId: this.selected.id, command: offer.command, label: offer.label };
     }
     // The command (including the exact customer/table) stays fixed throughout the dwell.
-    // Losing validity cancels its timer, without silently choosing another customer.
+    // Invalid commands lose all progress before a fresh command is selected.
     const valid = this.pending && !this.restaurant.validate(this.pending.command);
     const inside = INTERACTION_ZONES.filter(zone =>
       Math.hypot(this.player.position.x - zone.position.x, this.player.position.y - zone.position.y) <= INTERACTION.radius).map(zone => zone.id);
@@ -138,6 +142,7 @@ export class RestaurantScene extends Phaser.Scene {
   }
 
   private showMessage(message: string): void {
+    if (!this.messageElement.hidden && this.messageElement.textContent === message) return;
     setText(this.messageElement, message);
     this.messageElement.hidden = false;
     this.messageRemainingMs = INTERACTION.messageDuration;
@@ -147,14 +152,14 @@ export class RestaurantScene extends Phaser.Scene {
     if (!this.selected) return null;
     if (!this.pending) return this.restaurant.offer(this.selected);
     const problem = this.restaurant.validate(this.pending.command);
-    return problem ? { command: null, reason: problem + ' Muévete para iniciar otra acción.' } :
+    return problem ? { command: null, reason: problem } :
       { command: this.pending.command, label: this.pending.label };
   }
 
   private renderState(): void {
     const restaurant = this.restaurant;
     const production = restaurant.production;
-    this.player.setCarried(production.carried);
+    this.player.setInventory(production.inventory);
     for (const station of this.stations) {
       station.setSelected(station.data.id === this.selected?.stationId);
       station.showState(restaurant);
@@ -168,22 +173,24 @@ export class RestaurantScene extends Phaser.Scene {
       if (!view) { view = new CustomerView(this, customer); this.customerViews.set(customer.id, view); }
       view.update(customer);
     }
-    const held = production.carried;
-    const order = held && typeof held === 'object' ? restaurant.order(held.orderId) : undefined;
-    setText(this.carriedElement, held === 'ingredients' ? 'Ingredientes' : held === 'meal' ? 'Nasi goreng' :
-      held === 'waste' ? 'Residuos → papelera' : order ? '#' + order.number + ' → Mesa ' + order.tableId!.slice(-1) : 'Vacías');
-    const state = production.stove;
-    setText(this.stoveElement, state.status === 'empty' ? 'Vacío' : state.status === 'ready' ? '¡Listo!' :
-      'Cocinando · ' + Math.max(0, (production.cookingMs - state.elapsedMs) / 1000).toFixed(1) + ' s');
-    this.stoveElement.parentElement!.classList.toggle('ready', state.status === 'ready');
+    const inventory = production.inventory;
+    const assigned = inventory.orderMeals.map(id => {
+      const order = restaurant.order(id)!;
+      return '#' + order.number + '→M' + order.tableId!.slice(-1);
+    }).join(', ');
+    setText(this.carriedElement, 'Ingredientes ' + inventory.ingredients + '/' + inventory.limits.ingredients +
+      ' · Platos ' + inventory.meals + '/' + inventory.limits.meals +
+      ' · Residuos ' + inventory.waste + '/' + inventory.limits.waste + (assigned ? ' · ' + assigned : ''));
+    const state = production.stoveSummary;
+    setText(this.stoveElement, state.cooking + ' cocinando · ' + state.ready + ' listas');
+    this.stoveElement.parentElement!.classList.toggle('ready', state.ready > 0);
     setText(this.counterElement, production.availablePortions + ' libre · ' + production.reservedPortions + ' reserv.');
-    this.counterElement.parentElement!.classList.toggle('ready', production.full);
+    this.counterElement.parentElement!.classList.toggle('ready', production.availablePortions > 0);
     setText(this.moneyElement, restaurant.money + ' monedas');
     setText(this.queueElement, 'En fila · aquí ' + restaurant.queue('dine-in').length + ' · llevar ' + restaurant.queue('takeaway').length);
     const available = this.currentOffer();
     let hint: string;
-    if (this.selected && this.dwell.needsExit(this.selected.id)) hint = 'Sal de la zona y vuelve para realizar otra acción.';
-    else if (available && !available.command) hint = available.reason;
+    if (available && !available.command) hint = available.reason;
     else if (available?.command) hint = available.label + ' · quédate quieto ' + INTERACTION.dwellMs / 1000 + ' s.';
     else hint = matchMedia('(pointer: coarse)').matches ? 'Arrastra para moverte; quédate quieto en los puntos de acción.' : 'WASD o flechas; quédate quieto en los puntos de acción.';
     setText(this.nameElement, this.selected?.name ?? 'Cocina · cobra · sirve · limpia');

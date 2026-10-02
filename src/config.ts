@@ -10,7 +10,7 @@ export const PLAYER = {
   collisionStep: 4,
 } as const;
 export const INTERACTION = { radius: 48, dwellMs: 1500, messageDuration: 3200 } as const;
-export const PRODUCTION = { cookingMs: 4000, counterCapacity: 5 } as const;
+export const PRODUCTION = { cookingMs: 4000, stoveSlots: 4, inventory: { ingredients: 4, meals: 4, waste: 4 } } as const;
 export const CUSTOMERS = {
   arrivalMs: 8000, dineInChance: 0.5, maxCustomers: 10, maxQueueLength: 3,
   speed: 90, eatingMs: 6000, price: 10,

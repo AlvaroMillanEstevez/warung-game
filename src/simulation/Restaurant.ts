@@ -30,7 +30,7 @@ export interface Order {
   status: 'reserved' | 'carried' | 'served';
 }
 export type RestaurantAction =
-  | { kind: 'production'; action: ProductionAction }
+  | { kind: 'production'; action: ProductionAction; slotIndex?: number | undefined }
   | { kind: 'checkout'; customerId: string; tableId: string | null }
   | { kind: 'pickup'; orderId: string }
   | { kind: 'serve'; orderId: string; tableId: string }
@@ -125,7 +125,6 @@ export class Restaurant {
 
   offer(zone: InteractionZone): Offer {
     if (zone.role === 'checkout') {
-      if (this.production.carried !== null) return { command: null, reason: 'Necesitas las manos vacías para cobrar.' };
       const eligible = (['dine-in', 'takeaway'] as const).map(intent => {
         const id = this.lines[intent][0];
         const customer = id ? this.people.get(id) : undefined;
@@ -143,7 +142,7 @@ export class Restaurant {
         label: 'Cobrar #' + next.customer.number + (next.customer.intent === 'takeaway' ? ' · llevar' : ' · comer aquí') };
     }
     if (zone.role === 'pickup') {
-      if (this.production.carried !== null) return { command: null, reason: 'Deja libres las manos para recoger un pedido.' };
+      if (!this.production.hasMealSpace()) return { command: null, reason: 'Inventario de platos lleno.' };
       const order = [...this.tickets.values()].filter(order => order.status === 'reserved' &&
         this.people.get(order.customerId)?.phase === 'waiting-food').sort((a, b) => a.paidAt - b.paidAt || a.number - b.number)[0];
       return order ? { command: { kind: 'pickup', orderId: order.id }, label: 'Recoger pedido #' + order.number + ' → ' + this.tableName(order.tableId!) } :
@@ -151,13 +150,12 @@ export class Restaurant {
     }
     if (zone.role === 'table') {
       const table = this.seats.get(zone.stationId)!;
-      if (table.cleanliness === 'dirty') return this.production.carried === null ?
+      if (table.cleanliness === 'dirty') return this.production.hasWasteSpace() ?
         { command: { kind: 'clean', tableId: table.id }, label: 'Recoger residuos de ' + this.tableName(table.id) } :
-        { command: null, reason: 'Necesitas las manos vacías para limpiar.' };
-      const held = this.production.carried;
-      if (held && typeof held === 'object') {
-        const order = this.tickets.get(held.orderId);
-        const command: RestaurantAction = { kind: 'serve', orderId: held.orderId, tableId: table.id };
+        { command: null, reason: 'Inventario de residuos lleno.' };
+      const order = [...this.tickets.values()].find(order => order.tableId === table.id && this.production.hasCarriedOrder(order.id));
+      if (order) {
+        const command: RestaurantAction = { kind: 'serve', orderId: order.id, tableId: table.id };
         const problem = this.validate(command);
         return problem ? { command: null, reason: problem } : { command, label: 'Servir pedido #' + order!.number };
       }
@@ -167,19 +165,17 @@ export class Restaurant {
     }
     const kind = STATIONS.find(s => s.id === zone.stationId)!.kind;
     const available = this.production.availableAt(kind);
-    return available.action ? { command: { kind: 'production', action: available.action }, label: available.label } : { command: null, reason: available.reason };
+    return available.action ? { command: { kind: 'production', action: available.action, slotIndex: available.slotIndex }, label: available.label } : { command: null, reason: available.reason };
   }
 
   validate(command: RestaurantAction): string | null {
-    const held = this.production.carried;
-    if (command.kind === 'production') return this.production.canPerform(command.action) ? null : 'La acción de producción ya no está disponible.';
+    if (command.kind === 'production') return this.production.canPerform(command.action, command.slotIndex) ? null : 'La acción de producción ya no está disponible.';
     if (command.kind === 'clean') {
       const table = this.seats.get(command.tableId);
-      return held !== null ? 'Necesitas las manos vacías para limpiar.' : table?.cleanliness !== 'dirty' ? 'La mesa ya está limpia.' : null;
+      return !this.production.hasWasteSpace() ? 'Inventario de residuos lleno.' : table?.cleanliness !== 'dirty' ? 'La mesa ya está limpia.' : null;
     }
     if (command.kind === 'checkout') {
       const customer = this.people.get(command.customerId);
-      if (held !== null) return 'Necesitas las manos vacías para cobrar.';
       if (!customer || customer.phase !== 'queueing' || customer.orderId || this.lines[customer.intent][0] !== customer.id) return 'Ese cliente ya no está listo en la caja.';
       if (this.production.availablePortions < 1) return 'Ya no queda una ración sin reservar.';
       if (customer.intent === 'dine-in') {
@@ -194,14 +190,14 @@ export class Restaurant {
     const customer = this.people.get(order.customerId);
     if (command.kind === 'serve' && command.tableId !== order.tableId) return 'Este plato corresponde a ' + this.tableName(order.tableId) + '.';
     if (table.customerId !== order.customerId || table.cleanliness !== 'clean' || customer?.phase !== 'waiting-food') return 'Espera a que el cliente esté sentado en su mesa limpia.';
-    if (command.kind === 'pickup') return held !== null ? 'Necesitas las manos vacías.' :
+    if (command.kind === 'pickup') return !this.production.hasMealSpace() ? 'Inventario de platos lleno.' :
       order.status !== 'reserved' || !this.production.hasReservation(order.id) ? 'El pedido ya se ha recogido.' : null;
-    return order.status !== 'carried' || !held || typeof held !== 'object' || held.orderId !== order.id ? 'No llevas el pedido de este cliente.' : null;
+    return order.status !== 'carried' || !this.production.hasCarriedOrder(order.id) ? 'No llevas el pedido de este cliente.' : null;
   }
 
   perform(command: RestaurantAction): string | null {
     if (this.validate(command)) return null;
-    if (command.kind === 'production') return this.production.perform(command.action);
+    if (command.kind === 'production') return this.production.perform(command.action, command.slotIndex);
     if (command.kind === 'checkout') {
       const customer = this.people.get(command.customerId)!;
       const table = command.tableId ? this.seats.get(command.tableId)! : null;

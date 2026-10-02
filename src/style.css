@@ -78,3 +78,12 @@ h1 > span { color: #c56346; }
   .status-chip > span { margin-bottom: 2px; }
   .queue-status { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; }
 }
+.status-chip:first-child { max-width: 350px; }
+.status-chip strong { line-height: 1.35; overflow-wrap: anywhere; }
+@media (max-width: 600px) and (orientation: portrait) {
+  .status-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .status-chip:first-child { grid-column: 1 / -1; max-width: none; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .status-chip:first-child { max-width: 230px; }
+}

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { COLORS as C, PLAYER } from '../config';
 import { moveWithCollisions } from '../world/collision';
 import type { Point, Rect } from '../world/layout';
-import type { CarriedItem } from '../simulation/Production';
+import type { InventoryState } from '../simulation/Production';
 
 export class Player {
   readonly position: Point = { ...PLAYER.spawn };
@@ -11,7 +11,7 @@ export class Player {
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly direction: Phaser.GameObjects.Graphics;
   private readonly cargo: Phaser.GameObjects.Graphics;
-  private carried: CarriedItem = null;
+  private inventory: InventoryState | null = null;
   private facing: Point = { x: 0, y: 1 };
   private walkTime = 0;
 
@@ -25,9 +25,8 @@ export class Player {
     this.sync();
   }
 
-  setCarried(carried: CarriedItem): void {
-    if (this.carried === carried) return;
-    this.carried = carried;
+  setInventory(inventory: InventoryState): void {
+    this.inventory = inventory;
     this.drawCargo();
   }
 
@@ -49,26 +48,24 @@ export class Player {
   private drawCargo(): void {
     const g = this.cargo;
     g.clear();
-    if (!this.carried) return;
-    // Carry to the side when facing away, so the temporary item graphic stays legible.
+    const inventory = this.inventory;
+    if (!inventory || inventory.ingredients + inventory.meals + inventory.waste === 0) return;
     g.setPosition(this.facing.y < -0.5 ? 21 : this.facing.x * 13, -16 + this.facing.y * 4);
-    if (this.carried === 'ingredients') {
-      g.fillStyle(C.woodLight).fillRoundedRect(-11, -6, 22, 16, 3);
-      g.fillStyle(C.green).fillEllipse(-5, -7, 11, 8).fillEllipse(2, -10, 8, 13);
-      g.fillStyle(C.coral).fillCircle(6, -5, 4);
-      g.lineStyle(2, C.woodDark).lineBetween(-7, 2, 7, 2);
-    } else if (this.carried === 'waste') {
-      g.fillStyle(C.woodDark).fillRoundedRect(-10, -4, 20, 15, 5);
-      g.fillStyle(C.cream).fillTriangle(-7, -4, -1, -12, 7, -3);
-      g.fillStyle(C.green).fillEllipse(6, -4, 10, 5);
-      g.lineStyle(2, C.woodLight).lineBetween(-8, 1, 8, 1);
-    } else {
-      g.fillStyle(C.cream).fillEllipse(0, 1, 29, 14);
-      g.fillStyle(C.woodLight).fillEllipse(0, -1, 22, 10);
-      g.fillStyle(C.cream).fillEllipse(2, -2, 10, 7);
-      g.fillStyle(C.gold).fillCircle(2, -2, 2.5);
-      g.fillStyle(C.green).fillCircle(-6, -2, 2).fillCircle(7, 2, 1.5);
-      if (typeof this.carried === 'object') g.lineStyle(2, C.coral).strokeEllipse(0, 1, 30, 15);
+    g.fillStyle(C.woodDark).fillRoundedRect(-22, 1, 44, 9, 3);
+    if (inventory.ingredients > 0) {
+      g.fillStyle(C.woodLight).fillRoundedRect(-21, -6, 14, 12, 2);
+      g.fillStyle(C.green).fillEllipse(-16, -7, 7, 11).fillEllipse(-11, -5, 8, 6);
+    }
+    if (inventory.meals > 0) {
+      for (let i = 0; i < inventory.meals; i++) {
+        g.fillStyle(C.cream).fillEllipse(0, 3 - i * 3, 21, 9);
+        if (i < inventory.orderMeals.length) g.lineStyle(2, C.coral).strokeEllipse(0, 3 - i * 3, 21, 9);
+      }
+      g.fillStyle(C.gold).fillEllipse(0, 3 - inventory.meals * 3, 13, 5);
+    }
+    if (inventory.waste > 0) {
+      g.fillStyle(C.greenDark).fillRoundedRect(9, -5, 12, 13, 4);
+      g.fillStyle(C.cream).fillTriangle(11, -5, 15, -11, 19, -5);
     }
     this.visual.bringToTop(this.facing.y < -0.5 ? this.body : this.cargo);
   }

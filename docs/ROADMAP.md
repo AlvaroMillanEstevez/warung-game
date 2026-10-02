@@ -7,6 +7,7 @@
 - [x] **Hito 3 · Clientes y ventas**: intención fija, llegadas limitadas, dos filas, cabeza elegible más antigua, caja, cobro único y reservas.
 - [x] **Hito 3 · Servicio y limpieza**: plato vinculado, mesa limpia/sucia independiente de asignación, espera lateral, consumo, residuos, salida y descarte.
 - [x] **Hito 3 · Integración y verificación**: rutas sin atravesar muebles, HUD, pausa de todos los relojes, reinicio completo, pruebas de reglas y navegador escritorio/móvil emulado. Evidencia en VERIFICATION.md.
+- [x] **Revisión funcional del hito 3**: inventario simultáneo 4/4/4, ciclos continuos, hornillo de cuatro posiciones, mostrador sin límite, caja con carga, servicio/limpieza en un punto y papelera solo para residuos.
 - [ ] **Revisión manual del hito 3**: probar el circuito y la legibilidad/sensaciones en teléfono físico. Detener aquí nuevas funciones.
 - [ ] **Hito 4 · Personal**: contratación de cocinero y camarero con profesiones fijas y tareas acordadas.
 - [ ] **Hito 5 · Progresión**: mesas adicionales, mejoras, costes y guardado local.

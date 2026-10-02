@@ -3,144 +3,146 @@ import assert from 'node:assert/strict';
 import { Production } from '../src/simulation/Production.ts';
 import { DwellInteraction } from '../src/simulation/DwellInteraction.ts';
 
-function cookOne(production) {
-  assert.ok(production.perform('take-ingredients'));
-  assert.ok(production.perform('start-cooking'));
-  production.update(production.cookingMs);
-  assert.ok(production.perform('take-meal'));
-}
-
-test('Una sola unidad: el frigorífico no duplica ni sustituye la carga', () => {
-  const p = new Production();
+function cookOne(p) {
   assert.ok(p.perform('take-ingredients'));
+  assert.ok(p.perform('start-cooking'));
+  p.update(p.cookingMs);
+  assert.ok(p.perform('take-meal'));
+}
+test('Cuatro ingredientes con cuatro ciclos completos sin salir; lleno espera sin progreso', () => {
+  const p = new Production(), dwell = new DwellInteraction();
+  for (let i = 1; i <= 4; i++) {
+    const target = { id: 'fridge', action: p.availableAt('fridge').action };
+    assert.equal(dwell.update(target, ['fridge'], false, 1499), null);
+    assert.ok(p.perform(dwell.update(target, ['fridge'], false, 1)));
+    assert.equal(p.inventory.ingredients, i);
+  }
   assert.equal(p.perform('take-ingredients'), null);
-  assert.equal(p.carried, 'ingredients');
-  assert.equal(p.perform('store-meal'), null);
-  assert.equal(p.carried, 'ingredients');
+  assert.equal(dwell.update({ id: 'fridge', action: p.availableAt('fridge').action }, ['fridge'], false, 10000), null);
+  assert.equal(dwell.progress, 0);
 });
-
-test('La cocción transfiere una vez, no permite recogida temprana ni carga sobre un hornillo ocupado', () => {
+test('Cuatro posiciones con tiempos independientes; lista sigue ocupada hasta recoger', () => {
   const p = new Production();
-  p.perform('take-ingredients');
-  p.perform('start-cooking');
-  assert.equal(p.carried, null);
-  assert.equal(p.perform('start-cooking'), null);
-  p.update(p.cookingMs - 1);
-  assert.equal(p.perform('take-meal'), null);
-  p.perform('take-ingredients');
-  assert.equal(p.perform('start-cooking'), null);
-  p.update(1);
-  assert.equal(p.stove.status, 'ready');
-  assert.equal(p.perform('take-meal'), null);
-  p.perform('discard');
-  assert.ok(p.perform('take-meal'));
-  assert.equal(p.stove.status, 'empty');
-  assert.equal(p.carried, 'meal');
-  assert.equal(p.perform('take-meal'), null);
-});
-
-test('Mostrador lleno: conserva la ración; no duplica al depositar ni descartar', () => {
-  const p = new Production();
-  for (let i = 0; i < p.capacity; i++) {
-    cookOne(p);
-    assert.ok(p.perform('store-meal'));
-    assert.equal(p.perform('store-meal'), null);
-    assert.equal(p.portions, i + 1);
-    assert.equal(p.carried, null);
+  for (let i = 0; i < 4; i++) p.perform('take-ingredients');
+  for (let i = 0; i < 4; i++) {
+    assert.ok(p.perform('start-cooking'));
+    p.update(1000);
   }
-  cookOne(p);
+  assert.deepEqual(p.stove, [{ status: 'ready' }, { status: 'cooking', elapsedMs: 3000 },
+    { status: 'cooking', elapsedMs: 2000 }, { status: 'cooking', elapsedMs: 1000 }]);
+  p.perform('take-ingredients');
+  assert.equal(p.perform('start-cooking', 0), null);
+  assert.equal(p.perform('take-meal', 1), null);
+  assert.ok(p.perform('take-meal', 0));
+  assert.equal(p.perform('take-meal', 0), null);
+  assert.ok(p.perform('start-cooking', 0));
+  assert.equal(p.inventory.ingredients, 0);
+  p.update(3000);
+  assert.deepEqual(p.stoveSummary, { cooking: 1, ready: 3, empty: 0 });
+});
+test('Prioriza recogida, después carga; cargar con platos llenos y posición vacía es válido', () => {
+  const p = new Production();
+  for (let i = 0; i < 4; i++) cookOne(p);
+  p.perform('take-ingredients');
+  assert.equal(p.availableAt('stove').action, 'start-cooking');
+  p.perform('start-cooking'); p.update(4000);
+  p.perform('take-ingredients');
+  assert.equal(p.availableAt('stove').action, 'start-cooking');
+  p.perform('store-meal');
+  assert.equal(p.availableAt('stove').action, 'take-meal');
+  p.perform('take-meal');
+  assert.equal(p.availableAt('stove').action, 'start-cooking');
+  assert.equal(p.inventory.meals, 4);
+});
+test('Capacidades independientes, platos libres y pedidos comparten límite sin perder identidad', () => {
+  const p = new Production();
+  cookOne(p); p.perform('store-meal'); p.reservePortion('paid-1');
+  cookOne(p); p.perform('store-meal'); p.reservePortion('paid-2');
+  for (let i = 0; i < 3; i++) cookOne(p);
+  for (let i = 0; i < 4; i++) { p.perform('take-ingredients'); assert.ok(p.collectWaste()); }
+  assert.ok(p.collectReserved('paid-1'));
+  assert.equal(p.collectReserved('paid-1'), false);
+  assert.equal(p.collectReserved('paid-2'), false);
+  assert.equal(p.inventory.ingredients, 4);
+  assert.equal(p.inventory.meals, 4);
+  assert.equal(p.inventory.waste, 4);
+  assert.equal(p.collectWaste(), false);
+  assert.equal(p.perform('take-ingredients'), null);
+  assert.ok(p.perform('store-meal'));
+  assert.ok(p.collectReserved('paid-2'));
+  assert.deepEqual(p.inventory.orderMeals, ['paid-1', 'paid-2']);
+  assert.equal(p.deliverReserved('wrong'), false);
+  assert.ok(p.deliverReserved('paid-1'));
+  assert.equal(p.deliverReserved('paid-1'), false);
+  assert.deepEqual(p.inventory.orderMeals, ['paid-2']);
+});
+test('Mostrador sin límite y papelera solo residuos: conserva ingredientes y todos los platos', () => {
+  const p = new Production();
+  for (let i = 0; i < 12; i++) { cookOne(p); assert.ok(p.perform('store-meal')); }
+  assert.equal(p.availablePortions, 12);
   assert.equal(p.perform('store-meal'), null);
-  assert.equal(p.carried, 'meal');
-  assert.equal(p.portions, p.capacity);
-  assert.equal(p.full, true);
-  assert.ok(p.perform('discard'));
+  p.reservePortion('paid'); p.collectReserved('paid');
+  cookOne(p); p.perform('take-ingredients');
+  for (let i = 0; i < 4; i++) p.collectWaste();
+  const before = p.inventory;
+  for (let i = 0; i < 4; i++) assert.ok(p.perform('discard'));
   assert.equal(p.perform('discard'), null);
+  assert.deepEqual(p.inventory, { ...before, waste: 0 });
+  p.perform('store-meal');
+  assert.equal(p.perform('store-meal'), null);
+  assert.deepEqual(p.inventory.orderMeals, ['paid']);
 });
-
-test('Un comando seleccionado antes se revalida si el destino cambia', () => {
-  const p = new Production(1);
-  cookOne(p);
-  const command = p.availableAt('counter').action;
-  p.perform('discard');
-  assert.equal(p.perform(command), null);
+test('Los límites y el tiempo son configurables y el reinicio vacía toda la producción', () => {
+  const p = new Production({ inventory: { ingredients: 2, meals: 1, waste: 3 }, stoveSlots: 2, cookingMs: 500 });
+  cookOne(p); p.perform('store-meal'); p.reservePortion('paid'); p.collectReserved('paid');
+  p.perform('take-ingredients'); p.perform('start-cooking'); p.collectWaste();
+  p.reset(); p.update(10000);
+  assert.deepEqual(p.inventory, { ingredients: 0, freeMeals: 0, meals: 0, orderMeals: [], waste: 0, limits: p.limits });
+  assert.deepEqual(p.stoveSummary, { empty: 2, cooking: 0, ready: 0 });
   assert.equal(p.portions, 0);
+  assert.equal(p.reservedOrderIds.length, 0);
 });
-
-test('Reiniciar limpia carga, cocción, existencias y estado de capacidad', () => {
-  const p = new Production(1);
-  cookOne(p); p.perform('store-meal'); p.perform('take-ingredients'); p.perform('start-cooking');
-  p.reset();
-  assert.equal(p.carried, null);
-  assert.equal(p.stove.status, 'empty');
-  assert.equal(p.portions, 0);
-  assert.equal(p.full, false);
-  p.update(10000);
-  assert.equal(p.stove.status, 'empty');
-});
-
-test('Permanecer sobre el hornillo no encadena carga y recogida, tampoco tras pausar o cambiar selección', () => {
-  const p = new Production();
-  const dwell = new DwellInteraction();
-  const load = { id: 'stove', action: 'start-cooking' };
-  p.perform('take-ingredients');
-  const command = dwell.update(load, ['stove'], false, 1500);
-  p.perform(command);
-  p.update(4000);
-  const collect = { id: 'stove', action: 'take-meal' };
-  assert.equal(dwell.update(collect, ['stove'], false, 5000), null);
-  dwell.cancel();
-  assert.equal(dwell.update(null, ['stove'], false, 0), null);
-  assert.equal(dwell.update(collect, ['stove'], false, 1500), null);
-  assert.equal(p.carried, null);
-  dwell.update(null, [], true, 16);
-  assert.equal(dwell.update(collect, ['stove'], false, 1499), null);
-  assert.equal(dwell.update(collect, ['stove'], false, 1), 'take-meal');
-  assert.ok(p.perform('take-meal'));
-  assert.equal(dwell.update(collect, ['stove'], false, 5000), null);
-});
-
-test('Intentar moverse cancela aunque la posición física no cambie (mueble o teclas opuestas)', () => {
-  const dwell = new DwellInteraction();
-  const target = { id: 'fridge', action: 'take-ingredients' };
-  dwell.update(target, ['fridge'], false, 1400);
-  assert.ok(dwell.progress > 0.9);
-  dwell.update(target, ['fridge'], true, 1000);
+test('Hornillo encadena carga y recogida quieto; cada acción requiere un ciclo nuevo', () => {
+  const p = new Production(), dwell = new DwellInteraction();
+  for (let i = 0; i < 4; i++) p.perform('take-ingredients');
+  let pending = null, transfers = 0;
+  for (let time = 0; time < 30000; time += 50) {
+    p.update(50);
+    if (!pending) { const offer = p.availableAt('stove'); if (offer.action) pending = offer; }
+    const action = pending ? JSON.stringify(pending) : null;
+    const done = dwell.update({ id: 'stove', action }, ['stove'], false, 50);
+    if (done) { assert.ok(p.perform(pending.action, pending.slotIndex)); pending = null; transfers++; }
+  }
+  assert.equal(transfers, 8);
+  assert.equal(p.inventory.meals, 4);
+  assert.equal(p.inventory.ingredients, 0);
   assert.equal(dwell.progress, 0);
-  assert.equal(dwell.update(target, ['fridge'], false, 1499), null);
-  assert.equal(dwell.update(target, ['fridge'], false, 1), 'take-ingredients');
+  assert.deepEqual(p.stoveSummary, { empty: 4, ready: 0, cooking: 0 });
 });
-
-test('Salir, cambiar estación o perder una condición válida reinicia los 1,5 segundos', () => {
-  const target = { id: 'fridge', action: 'take-ingredients' };
-  for (const interrupted of [null, { id: 'other', action: 'take-ingredients' }, { id: 'fridge', action: null }]) {
-    const dwell = new DwellInteraction();
-    dwell.update(target, ['fridge'], false, 1400);
-    dwell.update(interrupted, ['fridge'], false, 0);
-    assert.equal(dwell.update(target, ['fridge'], false, 100), null);
-    assert.ok(dwell.progress < 0.1);
+test('Movimiento, salida, cambio de objetivo, invalidez y foco descartan progreso', () => {
+  const target = { id: 'checkout', action: 'customer-1' };
+  for (const mode of ['move', 'leave', 'target', 'invalid', 'focus', 'reset']) {
+    const d = new DwellInteraction();
+    d.update(target, ['checkout'], false, 1400);
+    if (mode === 'move') d.update(target, ['checkout'], true, 5000);
+    if (mode === 'leave') d.update(target, [], false, 5000);
+    if (mode === 'target') d.update({ ...target, action: 'customer-2' }, ['checkout'], false, 0);
+    if (mode === 'invalid') d.update({ ...target, action: null }, ['checkout'], false, 5000);
+    if (mode === 'focus') d.cancel();
+    if (mode === 'reset') d.reset();
+    assert.equal(d.progress, 0);
+    assert.equal(d.update(target, ['checkout'], false, 1499), null);
+    assert.equal(d.update(target, ['checkout'], false, 1), target.action);
+    assert.equal(d.update(target, ['checkout'], false, 1499), null);
   }
 });
-
-test('Cancelar por foco elimina progreso parcial, sin acumular tiempo de fondo', () => {
-  const dwell = new DwellInteraction();
-  const target = { id: 'fridge', action: 'take-ingredients' };
-  dwell.update(target, ['fridge'], false, 1400);
-  dwell.cancel();
-  assert.equal(dwell.progress, 0);
-  assert.equal(dwell.update(target, ['fridge'], false, 100), null);
-  const p = new Production();
-  p.perform('take-ingredients'); p.perform('start-cooking');
-  p.update(1000);
-  assert.equal(p.cookingProgress, 0.25);
-  p.update(0); // Scene passes no hidden time.
-  assert.equal(p.cookingProgress, 0.25);
-});
-
-test('El reinicio de la prueba libera también el bloqueo de permanencia', () => {
-  const dwell = new DwellInteraction();
-  const target = { id: 'fridge', action: 'take-ingredients' };
-  dwell.update(target, ['fridge'], false, 1500);
-  dwell.reset();
-  assert.equal(dwell.needsExit('fridge'), false);
-  assert.equal(dwell.update(target, ['fridge'], false, 1500), 'take-ingredients');
+test('Espera sin acción no acumula tiempo y un delta enorme nunca ejecuta más de una unidad', () => {
+  const d = new DwellInteraction();
+  d.update({ id: 'checkout', action: null }, ['checkout'], false, 90000);
+  const target = { id: 'checkout', action: 'customer-1' };
+  assert.equal(d.update(target, ['checkout'], false, 1499), null);
+  assert.equal(d.update(target, ['checkout'], false, 1), target.action);
+  assert.equal(d.update(target, ['checkout'], false, 90000), target.action);
+  assert.equal(d.progress, 0);
+  assert.equal(d.update(target, ['checkout'], false, 0), null);
 });
