@@ -1,7 +1,6 @@
 import { INTERACTION } from '../config.ts';
-import type { ProductionAction } from './Production.ts';
 
-export interface DwellTarget { id: string; action: ProductionAction | null }
+export interface DwellTarget { id: string; action: string | null }
 
 // One selected station; completed stations stay latched until physically leaving their radius.
 export class DwellInteraction {
@@ -16,7 +15,7 @@ export class DwellInteraction {
   get progress(): number { return this.elapsedMs / this.durationMs; }
   needsExit(id: string): boolean { return this.latched.has(id); }
 
-  update(target: DwellTarget | null, insideZones: readonly string[], tryingToMove: boolean, deltaMs: number): ProductionAction | null {
+  update(target: DwellTarget | null, insideZones: readonly string[], tryingToMove: boolean, deltaMs: number): string | null {
     for (const id of this.latched) if (!insideZones.includes(id)) this.latched.delete(id);
     if (target?.id !== this.target?.id || target?.action !== this.target?.action) this.cancel();
     this.target = target;

@@ -1,21 +1,15 @@
-import { INTERACTION, PLAYER } from '../config';
-import { expandRect, segmentHitsRect } from './collision';
-import type { Point, StationData } from './layout';
+import { INTERACTION, PLAYER } from '../config.ts';
+import { expandRect, segmentHitsRect } from './collision.ts';
+import type { InteractionZone, Point, Rect } from './layout.ts';
 
-export function closestStation(position: Point, stations: readonly StationData[]): StationData | null {
-  let nearest: StationData | null = null;
-  let nearestDistance: number = INTERACTION.radius;
-  for (const station of stations) {
-    if (station.kind === 'table') continue;
-    const distance = Math.hypot(position.x - station.interaction.x, position.y - station.interaction.y);
-    if (distance > nearestDistance) continue;
-    // Include the target furniture too: being close through its back does not count.
-    const blocked = stations.some((other) => segmentHitsRect(position, station.interaction,
-      expandRect(other.footprint, PLAYER.halfWidth, PLAYER.halfHeight)));
-    if (!blocked) {
-      nearest = station;
-      nearestDistance = distance;
-    }
+export function closestZone(position: Point, zones: readonly InteractionZone[], obstacles: readonly Rect[]): InteractionZone | null {
+  let nearest: InteractionZone | null = null;
+  let distance: number = INTERACTION.radius;
+  for (const zone of zones) {
+    const candidate = Math.hypot(position.x - zone.position.x, position.y - zone.position.y);
+    if (candidate > distance) continue;
+    if (obstacles.some(rect => segmentHitsRect(position, zone.position, expandRect(rect, PLAYER.halfWidth, PLAYER.halfHeight)))) continue;
+    nearest = zone; distance = candidate;
   }
   return nearest;
 }

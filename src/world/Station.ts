@@ -1,15 +1,12 @@
 import Phaser from 'phaser';
 import { COLORS as C } from '../config';
 import type { StationData } from './layout';
-import type { Production } from '../simulation/Production';
+import type { Restaurant } from '../simulation/Restaurant';
 
 export class Station {
   readonly visual: Phaser.GameObjects.Container;
   private readonly highlight: Phaser.GameObjects.Graphics;
-  private readonly marker: Phaser.GameObjects.Graphics;
-  private readonly label: Phaser.GameObjects.Text;
   private selected = false;
-  private readonly dwellBar: Phaser.GameObjects.Graphics;
   private readonly productionArt: Phaser.GameObjects.Graphics;
   private readonly statusLabel: Phaser.GameObjects.Text;
   private lastProductionKey = '';
@@ -87,31 +84,23 @@ export class Station {
     }
     this.highlight = scene.add.graphics().setDepth(y + d + 0.1);
     this.highlight.lineStyle(3, C.highlight).strokeRoundedRect(x - 3, y - lift - 3, w + 6, d + lift + 6, 7).setVisible(false);
-    this.marker = scene.add.graphics().setDepth(-0.25);
-    this.label = scene.add.text(data.interaction.x, data.interaction.y + 18, data.name, { fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#526451', backgroundColor: '#eee4ce', padding: { x: 5, y: 2 } }).setOrigin(0.5, 0).setDepth(-0.1);
-    this.dwellBar = scene.add.graphics().setDepth(1000);
     this.productionArt = scene.add.graphics();
     this.visual.add(this.productionArt);
-    this.statusLabel = scene.add.text(x + w / 2, y - lift - 10, '', {
+    this.statusLabel = scene.add.text(x + w / 2, y - lift + (data.kind === 'table' ? 11 : -10), '', {
       fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#315e50',
       backgroundColor: '#fff7e7', padding: { x: 6, y: 4 },
-    }).setOrigin(0.5, 1).setDepth(y + d + 0.3).setVisible(data.kind === 'stove' || data.kind === 'counter');
-    if (data.kind === 'table') { this.marker.setVisible(false); this.label.setVisible(false); }
-    this.drawMarker();
+    }).setOrigin(0.5, 1).setDepth(y + d + 0.3).setVisible(data.kind === 'stove' || data.kind === 'counter' || data.kind === 'table');
+
   }
 
-  setProgress(progress: number): void {
-    this.dwellBar.clear();
-    if (progress <= 0) return;
-    const { x, y } = this.data.interaction;
-    this.dwellBar.fillStyle(C.cream, 0.95).fillRoundedRect(x - 24, y + 40, 48, 8, 4);
-    this.dwellBar.fillStyle(C.highlight).fillRoundedRect(x - 22, y + 42, 44 * Math.min(1, progress), 4, 2);
-  }
-
-  showProduction(production: Production): void {
-    if (this.data.kind !== 'stove' && this.data.kind !== 'counter') return;
+  showState(restaurant: Restaurant): void {
+    if (!['stove', 'counter', 'table'].includes(this.data.kind)) return;
+    const production = restaurant.production;
+    const table = restaurant.table(this.data.id);
+    const customer = table?.customerId ? restaurant.customer(table.customerId) : undefined;
     const bucket = Math.round(production.cookingProgress * 100);
-    const key = production.stove.status + ':' + bucket + ':' + production.portions;
+    const key = [production.stove.status, bucket, production.availablePortions, production.reservedPortions,
+      table?.cleanliness, customer?.id, customer?.phase].join(':');
     if (key === this.lastProductionKey) return;
     this.lastProductionKey = key;
     const g = this.productionArt;
@@ -134,8 +123,23 @@ export class Station {
           g.lineStyle(3, C.highlight).lineBetween(w - 23, -lift + 10, w - 18, -lift + 15).lineBetween(w - 18, -lift + 15, w - 9, -lift + 4);
         }
       }
+    } else if (this.data.kind === 'table') {
+      const dirty = table!.cleanliness === 'dirty';
+      this.statusLabel.setText(this.data.name + ' · ' + (dirty ? 'sucia' : 'limpia') +
+        (customer ? ' · #' + customer.number : ' · libre'));
+      this.statusLabel.setColor(dirty ? '#995336' : '#315e50');
+      if (dirty || customer?.phase === 'eating') {
+        g.fillStyle(C.cream).fillEllipse(35, -lift + 31, 29, 16);
+        g.fillStyle(dirty ? C.woodDark : C.woodLight).fillEllipse(35, -lift + 31, dirty ? 12 : 23, 9);
+        g.fillStyle(C.green).fillCircle(31, -lift + 28, 2);
+        g.fillStyle(C.gold).fillCircle(40, -lift + 31, 3);
+        if (dirty) {
+          g.fillStyle(C.cream).fillTriangle(56, -lift + 34, 66, -lift + 30, 69, -lift + 41);
+          g.fillStyle(C.coral).fillCircle(46, -lift + 40, 2).fillCircle(29, -lift + 44, 2);
+        }
+      }
     } else {
-      this.statusLabel.setText(production.portions + ' / ' + production.capacity + (production.complete ? ' · completo' : ' raciones'));
+      this.statusLabel.setText(production.portions + ' / ' + production.capacity + ' · ' + production.reservedPortions + ' reservadas');
       // Capacity remains configurable; draw a compact stack rather than overflowing the counter.
       for (let i = 0; i < Math.min(production.portions, 8); i++) {
         const px = 30 + (i % 4) * 28;
@@ -145,6 +149,7 @@ export class Station {
         g.fillStyle(C.cream).fillEllipse(px + 2, py - 2, 8, 6);
         g.fillStyle(C.gold).fillCircle(px + 2, py - 2, 2);
         g.fillStyle(C.green).fillCircle(px - 5, py, 1.5);
+        if (i >= production.availablePortions) g.lineStyle(2, C.coral).strokeEllipse(px, py, 27, 15);
       }
     }
   }
@@ -153,20 +158,5 @@ export class Station {
     if (this.selected === selected) return;
     this.selected = selected;
     this.highlight.setVisible(selected);
-    this.label.setColor(selected ? '#244a40' : '#526451');
-    this.label.setFontStyle(selected ? 'bold' : 'normal');
-    this.drawMarker();
-  }
-
-  private drawMarker(): void {
-    const { x, y } = this.data.interaction;
-    this.marker.clear();
-    if (this.selected) {
-      this.marker.fillStyle(C.highlight, 0.12).fillEllipse(x, y, 44, 24);
-      this.marker.lineStyle(2, C.highlight, 0.9).strokeEllipse(x, y, 32, 16);
-    } else {
-      this.marker.lineStyle(1.5, C.woodDark, 0.45).strokeEllipse(x, y, 15, 8);
-    }
-    this.marker.fillStyle(this.selected ? C.highlight : C.woodDark, this.selected ? 0.9 : 0.4).fillCircle(x, y, 2);
   }
 }

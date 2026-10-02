@@ -1,5 +1,5 @@
-import { PLAYER, ROOM } from '../config';
-import type { Point, Rect } from './layout';
+import { PLAYER, ROOM } from '../config.ts';
+import type { Point, Rect } from './layout.ts';
 
 export function expandRect(rect: Rect, x: number, y: number): Rect {
   return { x: rect.x - x, y: rect.y - y, width: rect.width + x * 2, height: rect.height + y * 2 };

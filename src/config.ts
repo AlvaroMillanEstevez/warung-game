@@ -11,6 +11,10 @@ export const PLAYER = {
 } as const;
 export const INTERACTION = { radius: 48, dwellMs: 1500, messageDuration: 3200 } as const;
 export const PRODUCTION = { cookingMs: 4000, counterCapacity: 5 } as const;
+export const CUSTOMERS = {
+  arrivalMs: 8000, dineInChance: 0.5, maxCustomers: 10, maxQueueLength: 3,
+  speed: 90, eatingMs: 6000, price: 10,
+} as const;
 export const CONTROLS = { dragDeadZone: 10, dragMaxDistance: 58, stationaryTolerance: 0.06 } as const;
 export const CAMERA = {
   bounds: { x: 46, y: 56, width: 788, height: 554 },

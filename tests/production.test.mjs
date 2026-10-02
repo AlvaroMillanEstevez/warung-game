@@ -52,7 +52,7 @@ test('Mostrador lleno: conserva la ración; no duplica al depositar ni descartar
   assert.equal(p.perform('store-meal'), null);
   assert.equal(p.carried, 'meal');
   assert.equal(p.portions, p.capacity);
-  assert.equal(p.complete, true);
+  assert.equal(p.full, true);
   assert.ok(p.perform('discard'));
   assert.equal(p.perform('discard'), null);
 });
@@ -66,14 +66,14 @@ test('Un comando seleccionado antes se revalida si el destino cambia', () => {
   assert.equal(p.portions, 0);
 });
 
-test('Reiniciar limpia carga, cocción, existencias y marca de finalización', () => {
+test('Reiniciar limpia carga, cocción, existencias y estado de capacidad', () => {
   const p = new Production(1);
   cookOne(p); p.perform('store-meal'); p.perform('take-ingredients'); p.perform('start-cooking');
   p.reset();
   assert.equal(p.carried, null);
   assert.equal(p.stove.status, 'empty');
   assert.equal(p.portions, 0);
-  assert.equal(p.complete, false);
+  assert.equal(p.full, false);
   p.update(10000);
   assert.equal(p.stove.status, 'empty');
 });

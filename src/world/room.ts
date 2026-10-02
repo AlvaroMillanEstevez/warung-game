@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS as C, ROOM, WORLD } from '../config';
+import { QUEUE_POINTS, TABLE_POSITIONS } from './layout';
 
 export function drawRoom(scene: Phaser.Scene): void {
   const g = scene.add.graphics().setDepth(-100);
@@ -35,6 +36,20 @@ export function drawRoom(scene: Phaser.Scene): void {
   g.fillStyle(C.green, 0.84).fillRoundedRect(390, 556, 100, 39, 5);
   g.lineStyle(1, C.gold, 0.65).strokeRoundedRect(396, 562, 88, 27, 3);
   scene.add.text(440, 575, 'SELAMAT DATANG', { fontFamily: 'Arial, sans-serif', fontSize: '8px', color: '#fff7e7', letterSpacing: 1 }).setOrigin(0.5).setDepth(-90);
+  // Explicit waiting positions are visual guides, never character collision bodies.
+  for (const intent of ['dine-in', 'takeaway'] as const) {
+    const points = QUEUE_POINTS[intent];
+    for (const point of points) g.lineStyle(1, intent === 'takeaway' ? C.coral : C.green, 0.45).strokeEllipse(point.x, point.y, 27, 13);
+    const middle = points[intent === 'dine-in' ? 2 : 1]!;
+    scene.add.text(middle.x, middle.y + 17, intent === 'takeaway' ? 'FILA · LLEVAR' : 'FILA · COMER AQUÍ', {
+      fontFamily: 'Arial, sans-serif', fontSize: '10px', color: intent === 'takeaway' ? '#995336' : '#315e50',
+    }).setOrigin(0.5, 0).setDepth(-90);
+  }
+  for (const { seat, waiting } of Object.values(TABLE_POSITIONS)) {
+    g.fillStyle(C.woodDark).fillRoundedRect(seat.x - 11, seat.y - 5, 22, 10, 3);
+    g.fillStyle(C.woodLight).fillEllipse(seat.x, seat.y - 8, 28, 15);
+    g.lineStyle(1, C.coral, 0.3).strokeEllipse(waiting.x, waiting.y, 23, 11);
+  }
   // Wall window.
   g.fillStyle(C.woodDark).fillRoundedRect(660, 72, 126, 46, 3);
   g.fillStyle(0xb3c9ad).fillRect(666, 77, 114, 35);

@@ -2,14 +2,17 @@ import Phaser from 'phaser';
 import { INTERACTION, PLAYER } from '../config';
 import { Controls } from '../entities/Controls';
 import { Player } from '../entities/Player';
-import { Production } from '../simulation/Production';
+import { CustomerView } from '../entities/CustomerView';
+import { Restaurant, actionKey } from '../simulation/Restaurant';
+import type { Offer, RestaurantAction } from '../simulation/Restaurant';
 import { DwellInteraction } from '../simulation/DwellInteraction';
-import { closestStation } from '../world/interaction';
-import { STATIONS } from '../world/layout';
-import type { StationData } from '../world/layout';
+import { closestZone } from '../world/interaction';
+import { INTERACTION_ZONES, STATIONS } from '../world/layout';
+import type { InteractionZone } from '../world/layout';
 import { frameRestaurant } from '../world/camera';
 import { drawRoom } from '../world/room';
 import { Station } from '../world/Station';
+import { InteractionMarker } from '../world/InteractionMarker';
 
 function setText(element: HTMLElement, text: string): void {
   if (element.textContent !== text) element.textContent = text;
@@ -19,32 +22,37 @@ export class RestaurantScene extends Phaser.Scene {
   private player!: Player;
   private controls!: Controls;
   private stations: Station[] = [];
-  private selected: StationData | null = null;
-  private readonly production = new Production();
+  private markers: InteractionMarker[] = [];
+  private readonly customerViews = new Map<string, CustomerView>();
+  private selected: InteractionZone | null = null;
+  private pending: { zoneId: string; command: RestaurantAction; label: string } | null = null;
+  private readonly restaurant = new Restaurant();
   private readonly dwell = new DwellInteraction();
   private messageRemainingMs = 0;
   private discardNextDelta = true;
-  private readonly obstacles = STATIONS.map((station) => station.footprint);
+  private readonly obstacles = STATIONS.map(station => station.footprint);
   private readonly nameElement = document.querySelector<HTMLElement>('#station-name')!;
   private readonly hintElement = document.querySelector<HTMLElement>('#interaction-hint')!;
   private readonly messageElement = document.querySelector<HTMLElement>('#interaction-message')!;
   private readonly carriedElement = document.querySelector<HTMLElement>('#carried-status')!;
   private readonly stoveElement = document.querySelector<HTMLElement>('#stove-status')!;
   private readonly counterElement = document.querySelector<HTMLElement>('#counter-status')!;
+  private readonly moneyElement = document.querySelector<HTMLElement>('#money-status')!;
+  private readonly queueElement = document.querySelector<HTMLElement>('#queue-status')!;
   private readonly resetButton = document.querySelector<HTMLButtonElement>('#reset-test')!;
 
   constructor() { super('Restaurant'); }
 
   create(): void {
     drawRoom(this);
-    this.stations = STATIONS.map((data) => new Station(this, data));
+    this.stations = STATIONS.map(data => new Station(this, data));
+    this.markers = INTERACTION_ZONES.map(data => new InteractionMarker(this, data));
     this.player = new Player(this);
-    this.controls = new Controls(this.game.canvas, (discardFrame) => {
-      this.dwell.cancel();
-      for (const station of this.stations) station.setProgress(0);
+    this.controls = new Controls(this.game.canvas, discardFrame => {
+      this.cancelInteraction();
       if (discardFrame) this.discardNextDelta = true;
     });
-    this.production.reset();
+    this.restaurant.reset();
     this.dwell.reset();
     this.resizeCamera();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.resizeCamera, this);
@@ -53,6 +61,7 @@ export class RestaurantScene extends Phaser.Scene {
       this.controls.destroy();
       this.scale.off(Phaser.Scale.Events.RESIZE, this.resizeCamera, this);
       this.resetButton.removeEventListener('click', this.resetTest);
+      this.customerViews.clear();
       this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanup);
       this.events.off(Phaser.Scenes.Events.DESTROY, cleanup);
     };
@@ -63,29 +72,36 @@ export class RestaurantScene extends Phaser.Scene {
 
   update(_time: number, delta: number): void {
     if (this.controls.paused || document.hidden) {
-      this.dwell.cancel();
+      this.cancelInteraction();
       this.discardNextDelta = true;
       return;
     }
-    // Discard the first frame after resuming. Never charge either timer for time spent hidden.
+    // Every restaurant timer receives only active time, including arrivals and consumption.
     const activeDelta = this.discardNextDelta ? 0 : Math.min(Math.max(0, delta), PLAYER.maxFrameSeconds * 1000);
     this.discardNextDelta = false;
-    const previousStove = this.production.stove;
-    this.production.update(activeDelta);
-    if (previousStove.status === 'cooking' && this.production.stove.status === 'ready') this.showMessage('El nasi goreng está listo para recoger.');
+    const previousStove = this.restaurant.production.stove;
+    this.restaurant.update(activeDelta);
+    if (previousStove.status === 'cooking' && this.restaurant.production.stove.status === 'ready') this.showMessage('El nasi goreng está listo para recoger.');
     this.player.update(this.controls.movement, activeDelta, this.obstacles);
-    this.selected = closestStation(this.player.position, STATIONS);
-    const available = this.selected ? this.production.availableAt(this.selected.kind) : null;
-    const inside = STATIONS.filter((station) => station.kind !== 'table' &&
-      Math.hypot(this.player.position.x - station.interaction.x, this.player.position.y - station.interaction.y) <= INTERACTION.radius).map((station) => station.id);
-    const command = this.dwell.update(
-      this.selected ? { id: this.selected.id, action: available?.action ?? null } : null,
+    this.selected = closestZone(this.player.position, INTERACTION_ZONES, this.obstacles);
+    if (this.pending?.zoneId !== this.selected?.id || this.controls.tryingToMove) this.pending = null;
+    if (!this.pending && this.selected && !this.controls.tryingToMove && !this.dwell.needsExit(this.selected.id)) {
+      const offer = this.restaurant.offer(this.selected);
+      if (offer.command) this.pending = { zoneId: this.selected.id, command: offer.command, label: offer.label };
+    }
+    // The command (including the exact customer/table) stays fixed throughout the dwell.
+    // Losing validity cancels its timer, without silently choosing another customer.
+    const valid = this.pending && !this.restaurant.validate(this.pending.command);
+    const inside = INTERACTION_ZONES.filter(zone =>
+      Math.hypot(this.player.position.x - zone.position.x, this.player.position.y - zone.position.y) <= INTERACTION.radius).map(zone => zone.id);
+    const completed = this.dwell.update(
+      this.selected ? { id: this.selected.id, action: valid ? actionKey(this.pending!.command) : null } : null,
       inside, this.controls.tryingToMove, activeDelta,
     );
-    if (command) {
-      // Production rechecks source/destination at commit time. No separate keyboard/touch action path.
-      const message = this.production.perform(command);
+    if (completed && this.pending) {
+      const message = this.restaurant.perform(this.pending.command);
       if (message) this.showMessage(message);
+      this.pending = null;
     }
     if (this.messageRemainingMs > 0) {
       this.messageRemainingMs = Math.max(0, this.messageRemainingMs - activeDelta);
@@ -94,15 +110,23 @@ export class RestaurantScene extends Phaser.Scene {
     this.renderState();
   }
 
+  private cancelInteraction(): void {
+    this.pending = null;
+    this.dwell.cancel();
+    for (const marker of this.markers) marker.update(false, 0);
+  }
+
   private readonly resetTest = (): void => {
     this.controls.reset();
-    this.production.reset();
+    this.restaurant.reset();
     this.dwell.reset();
+    this.pending = null;
     this.selected = null;
+    this.discardNextDelta = true;
     Object.assign(this.player.position, PLAYER.spawn);
     this.player.update({ x: 0, y: 0 }, 0, this.obstacles);
     this.resizeCamera();
-    this.showMessage('Prueba reiniciada: manos, hornillo y mostrador vacíos.');
+    this.showMessage('Restaurante reiniciado. Todo listo para empezar.');
     this.renderState();
     document.querySelector<HTMLElement>('#game')!.focus({ preventScroll: true });
   };
@@ -119,29 +143,50 @@ export class RestaurantScene extends Phaser.Scene {
     this.messageRemainingMs = INTERACTION.messageDuration;
   }
 
+  private currentOffer(): Offer | null {
+    if (!this.selected) return null;
+    if (!this.pending) return this.restaurant.offer(this.selected);
+    const problem = this.restaurant.validate(this.pending.command);
+    return problem ? { command: null, reason: problem + ' Muévete para iniciar otra acción.' } :
+      { command: this.pending.command, label: this.pending.label };
+  }
+
   private renderState(): void {
-    this.player.setCarried(this.production.carried);
+    const restaurant = this.restaurant;
+    const production = restaurant.production;
+    this.player.setCarried(production.carried);
     for (const station of this.stations) {
-      station.setSelected(station.data === this.selected);
-      station.setProgress(station.data === this.selected ? this.dwell.progress : 0);
-      station.showProduction(this.production);
+      station.setSelected(station.data.id === this.selected?.stationId);
+      station.showState(restaurant);
     }
-    setText(this.carriedElement, this.production.carried === 'ingredients' ? 'Ingredientes' : this.production.carried === 'meal' ? 'Nasi goreng' : 'Vacías');
-    const state = this.production.stove;
+    for (const marker of this.markers) marker.update(marker.zone === this.selected, marker.zone === this.selected ? this.dwell.progress : 0);
+    const customers = restaurant.customers;
+    const live = new Set(customers.map(customer => customer.id));
+    for (const [id, view] of this.customerViews) if (!live.has(id)) { view.destroy(); this.customerViews.delete(id); }
+    for (const customer of customers) {
+      let view = this.customerViews.get(customer.id);
+      if (!view) { view = new CustomerView(this, customer); this.customerViews.set(customer.id, view); }
+      view.update(customer);
+    }
+    const held = production.carried;
+    const order = held && typeof held === 'object' ? restaurant.order(held.orderId) : undefined;
+    setText(this.carriedElement, held === 'ingredients' ? 'Ingredientes' : held === 'meal' ? 'Nasi goreng' :
+      held === 'waste' ? 'Residuos → papelera' : order ? '#' + order.number + ' → Mesa ' + order.tableId!.slice(-1) : 'Vacías');
+    const state = production.stove;
     setText(this.stoveElement, state.status === 'empty' ? 'Vacío' : state.status === 'ready' ? '¡Listo!' :
-      'Cocinando · ' + Math.max(0, (this.production.cookingMs - state.elapsedMs) / 1000).toFixed(1) + ' s');
+      'Cocinando · ' + Math.max(0, (production.cookingMs - state.elapsedMs) / 1000).toFixed(1) + ' s');
     this.stoveElement.parentElement!.classList.toggle('ready', state.status === 'ready');
-    setText(this.counterElement, this.production.portions + ' / ' + this.production.capacity + (this.production.complete ? ' · completo' : ''));
-    this.counterElement.parentElement!.classList.toggle('ready', this.production.complete);
-    const selected = this.selected;
-    const available = selected ? this.production.availableAt(selected.kind) : null;
+    setText(this.counterElement, production.availablePortions + ' libre · ' + production.reservedPortions + ' reserv.');
+    this.counterElement.parentElement!.classList.toggle('ready', production.full);
+    setText(this.moneyElement, restaurant.money + ' monedas');
+    setText(this.queueElement, 'En fila · aquí ' + restaurant.queue('dine-in').length + ' · llevar ' + restaurant.queue('takeaway').length);
+    const available = this.currentOffer();
     let hint: string;
-    if (available && !available.action) hint = available.reason;
-    else if (selected && this.dwell.needsExit(selected.id)) hint = 'Sal de la zona y vuelve para realizar otra acción.';
-    else if (available?.action) hint = available.label + ' · quédate quieto ' + INTERACTION.dwellMs / 1000 + ' s.';
-    else hint = this.production.complete ? 'Mostrador lleno. Circuito de prueba completado.' :
-      (matchMedia('(pointer: coarse)').matches ? 'Arrastra para moverte; quédate quieto junto a una estación.' : 'WASD o flechas para moverte; quédate quieto junto a una estación.');
-    setText(this.nameElement, selected?.name ?? (this.production.complete ? '¡Primera tanda completada!' : 'Frigorífico → hornillo → mostrador'));
+    if (this.selected && this.dwell.needsExit(this.selected.id)) hint = 'Sal de la zona y vuelve para realizar otra acción.';
+    else if (available && !available.command) hint = available.reason;
+    else if (available?.command) hint = available.label + ' · quédate quieto ' + INTERACTION.dwellMs / 1000 + ' s.';
+    else hint = matchMedia('(pointer: coarse)').matches ? 'Arrastra para moverte; quédate quieto en los puntos de acción.' : 'WASD o flechas; quédate quieto en los puntos de acción.';
+    setText(this.nameElement, this.selected?.name ?? 'Cocina · cobra · sirve · limpia');
     setText(this.hintElement, hint);
   }
 }

@@ -60,3 +60,21 @@ h1 > span { color: #c56346; }
   h1 { font-size: 23px; }
   .status-chip strong { font-size: 10px; }
 }
+
+.queue-status { display: inline-block; margin: 6px 0 0; padding: 4px 9px; border-radius: 6px; background: #fff7e7df; color: #49614b; font-size: 10px; }
+@media (max-width: 600px) and (orientation: portrait) {
+  .status-strip { display: grid; grid-template-columns: 1fr 1fr; }
+  .status-chip { padding: 5px 8px; }
+  .status-chip > span { margin-bottom: 2px; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .hud { display: block; }
+  .hud-heading { display: flex; }
+  h1 { margin: 0; }
+  #reset-test { min-height: 32px; padding: 3px 8px; }
+  #reset-test span { margin-bottom: 1px; }
+  .status-strip { margin-top: 4px; width: max-content; max-width: 100%; gap: 4px; }
+  .status-chip { min-width: 0; padding: 4px 8px; }
+  .status-chip > span { margin-bottom: 2px; }
+  .queue-status { position: absolute; top: 4px; left: 50%; transform: translateX(-50%); margin: 0; white-space: nowrap; }
+}

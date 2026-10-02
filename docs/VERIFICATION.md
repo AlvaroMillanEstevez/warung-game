@@ -1,89 +1,98 @@
-# Verificación del hito 2
+# Verificación del hito 3
 
-Fecha: 2026-10-02. El hito 1 fue revisado y aprobado manualmente por el usuario antes de este encargo.
+Fecha: 2026-10-02. Los hitos 1 y 2 están revisados manualmente y aprobados por el usuario. Esta verificación técnica corresponde a clientes, ventas, servicio y limpieza; queda pendiente la revisión manual del hito 3.
 
-## Entorno y compilación
+## Entorno y comprobaciones
 
 - WSL Ubuntu 22.04, Node 24.18.0 y npm 11.16.0.
-- Se conservan Phaser 4.2.1, Vite 8.3.2 y TypeScript 7.0.2.
-- No se han añadido dependencias. El mínimo de Node pasa a 22.18 para el ejecutor nativo de pruebas sobre módulos TypeScript.
-- `npm test`: **10 pruebas correctas**.
+- Phaser 4.2.1, TypeScript 7.0.2 y Vite 8.3.2; sin cambios de dependencias ni lockfile.
+- `npm test`: **21 pruebas correctas**, las 10 existentes y 11 nuevas de restaurante/navegación.
 - `npm run typecheck`: correcto.
-- `npm run build`: correcto, incluida la revisión final de la barra de permanencia.
+- `npm run build`: correcto, también después de los ajustes visuales finales.
 - `git diff --check`: correcto.
-- `npm install --package-lock-only --ignore-scripts`: metadatos sincronizados; auditoría sin vulnerabilidades.
-- Vite conserva el aviso por el tamaño del bundle: aprox. 1.401 kB sin comprimir / 366 kB gzip. No se ha ocultado el aviso.
-- La versión compilada se sirvió con `npm run preview`: carga, desplazamiento con teclado, permanencia y recogida de ingredientes correctos. Solo solicitó HTML, JS y CSS del servidor local.
+- Bundle final: aproximadamente 1.417,58 kB / 371,18 kB gzip. Vite conserva el aviso de chunks mayores de 500 kB.
 - No se han hecho commits, push, publicaciones ni cambios de red.
 
-## Pruebas pequeñas de reglas
+## Pruebas de reglas
 
-En `tests/production.test.mjs`, con `node:test` y sin framework adicional:
+Se mantiene el ejecutor nativo node:test, sin framework adicional.
 
-1. Una unidad transportada: el frigorífico no duplica ni sustituye lo que se lleva.
-2. Transferencia única al hornillo, rechazo de recogida temprana y de carga con hornillo ocupado.
-3. Mostrador lleno: se conserva la sexta ración; depósito y descarte no duplican unidades.
-4. Un comando elegido antes revalida origen/destino al ejecutarse.
-5. Reiniciar limpia producción, carga, existencias y finalización.
-6. Seguir en la zona no encadena carga/recogida, tampoco tras cancelar o cambiar selección.
-7. Intentar moverse cancela aunque el cuerpo no se desplace.
-8. Salir, cambiar de estación o perder una condición reinicia el plazo.
-9. Cancelar elimina progreso parcial; no se añade tiempo a una simulación detenida.
-10. El reinicio libera también los bloqueos de permanencia.
+Las pruebas existentes conservan: inventario de una unidad, cocina, transferencias, capacidad, revalidación, permanencia separada, intención de movimiento, bloqueo hasta salir y reinicio. Solo se renombra el antiguo estado de prueba completada como estado de capacidad.
 
-## Navegador
+Las nuevas pruebas cubren:
 
-Edge/Chromium 154.0.4258.48 en modo headless, con Playwright ya disponible en el entorno. Scripts y capturas locales en `artifacts/hito2-*`, fuera de Git; no se incorpora una suite extensa al proyecto.
+1. Cabeza elegible con mayor espera entre ambas filas, sin adelantar ni cobrar dos veces.
+2. Ventas para llevar con ambas mesas asignadas; una mesa no se asigna otra vez.
+3. Reservadas incluidas en capacidad, imposibles de vender para llevar; recoger libera espacio.
+4. Recogida solo con cliente sentado, rechazo de mesa equivocada/descarte del plato pagado/entrega duplicada.
+5. Consumo, salida, suciedad, preferencia por mesa limpia, reserva de sucia, espera lateral, limpieza conservando cliente y transferencia de residuos.
+6. Limpieza mientras el cliente sigue caminando: conserva reserva y recorre el tramo pendiente al asiento.
+7. Comando preparado que pierde validez: no cambia cliente ni cobra parcialmente.
+8. Reinicio completo, IDs distintos y rechazo de comandos de la partida anterior; reloj de llegada desde cero.
+9. Límites de fila/clientes, intención fija y llegada omitida sin deuda ni desvío.
+10. Ruta entre cada par de destinos explícitos, muestreo de segmentos libres y movimiento completo limitado por velocidad sin atravesar muebles.
+11. Tres radios del mostrador separados y accesibilidad de todos los puntos de acción.
 
-### Circuitos reales de entrada
+## Navegador de escritorio
 
-- **Teclado:** se recorrió físicamente el mapa desde el punto inicial y se produjeron/depositaron **cinco raciones** hasta completar el mostrador. El recorrido no escribió inventario ni recolocó al jugador.
-- Se esperó junto al hornillo después de cargar hasta terminar la cocción: la ración no se recogió automáticamente. Fue necesario salir y regresar.
-- La cocción continuó al alejarse.
-- Tras depositar, permanecer sobre el punto no repitió transferencias.
-- **Táctil emulado:** se recorrió el circuito completo de una ración mediante contacto inicial, arrastre relativo y liberación, sin modificar el estado para adelantarlo.
+Edge/Chromium **154.0.4258.48**, headless mediante Playwright disponible en el entorno.
 
-### Escenarios aislados
+Se probaron controles y permanencias reales de la aplicación; para reproducir los escenarios específicos se fijaron intenciones y se prepararon algunas raciones mediante las operaciones de producción del modelo. No se confunde esa preparación con producción manual completa de todas las raciones.
 
-Se utilizaron posiciones/estados controlados para aislar estas condiciones:
+- Se produjo **una ración completa con teclado**, desde el punto inicial hasta depósito, sin recolocar al jugador ni escribir inventario. Se cobró una venta para llevar y se comprobó que no ocupa las manos.
+- Dos clientes reservaron mesas y raciones mediante permanencia real en caja.
+- Recogida del pedido pagado más antiguo, rechazo en la mesa equivocada y entrega correcta.
+- Consumo durante 6 s, suciedad visible, liberación al levantarse y recorrido de salida.
+- Nuevo cliente reservado en la mesa sucia, con la otra mesa aún asignada; espera lateral visible.
+- Limpieza mediante permanencia, residuos en manos, reserva conservada y desplazamiento hasta el asiento.
+- Residuos a la papelera, recogida primero del pedido más antiguo y servicio de ambos pedidos pendientes.
+- Un plato pagado permaneció en las manos tras esperar en la papelera; el mensaje indicó que debía entregarse.
+- **Cinco ventas consecutivas** con ambas filas pobladas: dos reservas de mesa y tres ventas para llevar. El tercer cliente de comer aquí quedó esperando sin bloquear las ventas para llevar.
+- Permanecer en caja después del cobro no generó otra venta.
+- Se alteró deliberadamente la validez de un comando ya iniciado: durante la permanencia no se cambió al otro cliente elegible; fue necesario moverse y volver.
+- Reinicio DEV: caja, carga, pedidos, filas, clientes, reservas, mesas y vistas antiguas limpios.
 
-- Empujar contra el frigorífico durante más de 1,5 s no activa la recogida.
-- Una pulsación breve de movimiento reinicia progreso parcial.
-- El botón provisional reinicia sin recargar y sin iniciar movimiento táctil.
-- La pérdida de foco cancela entrada/permanencia; la cocina no avanza durante la pausa ni compensa tiempo al recuperar foco.
-- Un evento de visibilidad con documento oculto simulado pausa la cocción. Restaurar visibilidad no añade progreso offline.
-- La sexta ración permanece en las manos al intentar depositar en un mostrador lleno.
-- La papelera descarta mediante permanencia una sola vez; con manos vacías explica que no hay nada que descartar.
-- Las mesas no se seleccionan ni generan acciones.
+### Pausa
 
-### Arrastre, cámara e interfaz
+Con cocina y consumo activos, clientes presentes y una llegada próxima, se simularon eventos de visibilidad/documento oculto. No cambiaron el tiempo de simulación, el temporizador de llegada, la cocina ni los clientes durante la pausa. Al volver no hubo compensación del tiempo transcurrido.
 
-Pasaron 27 comprobaciones en la ejecución táctil final, incluyendo:
+También se ejercitó blur/focus: el reloj quedó detenido sin foco. Son pruebas de los manejadores mediante eventos/estado controlados, no una sesión manual cambiando de aplicación nativa.
 
-- Volver al origen detiene manteniendo contacto.
-- Un segundo dedo no mueve ni cambia el origen; no hereda el control al levantar el primero.
-- Cancelar el gesto detiene al jugador y elimina el indicador.
-- Un pequeño desplazamiento dentro de la tolerancia permite la permanencia.
-- Rotar/redimensionar cancela el gesto y el progreso.
-- La captura de Pointer Events libera correctamente al soltar fuera del área; esta salida se ejercitó con un puntero de ratón.
-- Lienzo cubriendo exactamente el viewport, sin scroll y con zoom uniforme a 320×568, 390×844, 568×320 y 844×390.
-- Interfaz y botón dentro del viewport, sin desbordamiento en esos tamaños.
-- Ningún error de consola ni excepción en la ejecución táctil final y en las comprobaciones complementarias.
+## Móvil emulado
 
-Durante las pruebas se corrigió un aviso de Phaser al intentar cancelar un touchcancel no cancelable: se deshabilitaron sus manejadores redundantes y se mantuvo una única implementación de entrada mediante Pointer Events.
+Con contexto táctil a 390 × 844 y eventos de contacto/arrastre/liberación:
 
-## Revisión visual
+- Recorrido a caja y compra por permanencia.
+- Recogida del pedido sentado y servicio en la mesa correcta, recorriendo el mapa con arrastre.
+- Volver al origen detiene sin soltar.
+- El segundo dedo no mueve al jugador ni hereda el control.
+- Cancelar el contacto detiene y elimina el indicador.
+- Reinicio mediante toque real en el botón: vacía restaurante y no inicia movimiento.
+- Redimensionar durante arrastre cancela la entrada.
+- Lienzo del tamaño exacto del viewport, sin scroll, zoom uniforme y HUD/contexto/botón dentro de los límites a **320 × 568, 390 × 844, 568 × 320 y 844 × 390**.
 
-Se inspeccionaron capturas de escritorio, móvil vertical y horizontal: local, carga, hornillo listo y mostrador completo. Se ajustó la carga para que siga visible al mirar hacia arriba. La barra de permanencia se trasladó debajo del nombre de la estación y se verificó visualmente para evitar que el cuerpo del jugador la oculte.
+No hubo errores de consola ni excepciones en las ejecuciones de escritorio, táctil y revisión visual final.
 
-La distribución y las huellas de los muebles del hito 1 se conservaron. El encuadre nuevo muestra una parte del restaurante cuando hace falta y sigue al jugador; no deforma ni redistribuye el local.
+## Revisión visual y versión compilada
 
-## No comprobado físicamente
+Se inspeccionaron capturas de venta para llevar, cliente comiendo, espera ante suciedad, residuos transportados, mesas reservadas y filas completas.
 
-- Teléfono/tableta reales, sensaciones con dedos físicos y barras dinámicas de Safari/iOS.
-- Safari, Firefox, hardware lento o sesiones prolongadas.
-- Muescas y zonas seguras reales: se usan variables CSS env, pero las capturas emuladas no reproducen un dispositivo con muesca.
-- Acceso desde otro dispositivo mediante la red de WSL/firewall.
-- Cambios de aplicación nativa: foco/visibilidad se comprobaron con eventos y estado simulados, no con una sesión manual de cambio de aplicaciones.
+Se ajustaron las etiquetas de mesa para no cubrir los cuerpos en fila y se separó el número de cliente de la etiqueta LLEVAR para evitar solapamiento entre las tres plazas. Se revisaron nuevamente escritorio y los cuatro tamaños móviles tras esos cambios. Los muebles conservaron sus huellas y posiciones.
 
-La emulación móvil no se presenta como prueba en un teléfono físico. El siguiente paso es la revisión manual de esta base de producción por el usuario.
+La compilación final se sirvió con `npm run preview`: carga, movimiento con teclado, recogida de ingredientes por permanencia y llegada automática correctos. Solo solicitó HTML, JS y CSS locales; sin errores de consola.
+
+Evidencia local en `artifacts/hito3-*`, excluida de Git:
+- Scripts de escritorio, móvil, revisión visual y producción.
+- Informes `hito3-desktop-results.json`, `hito3-mobile-results.json`, `hito3-visual-results.json` y `hito3-production-results.json`.
+- Capturas de cada escenario y tamaño.
+
+## Pendiente y límites
+
+- Prueba manual en un teléfono/tableta físico; la emulación no demuestra sensaciones táctiles reales, muescas ni barras dinámicas de Safari/iOS.
+- Safari, Firefox, hardware lento y sesiones prolongadas.
+- Acceso desde otro equipo por LAN/WSL/firewall.
+- Ajuste del ritmo, precio y límites, todos provisionales y centralizados.
+- Arte y animación siguen siendo provisionales. Los personajes pueden cruzarse al caminar; esperan en plazas distintas.
+- Sin empleados, mejoras, nuevas recetas, tutoriales guiados o persistencia. No se continúa con esos sistemas en este hito.
+
+El recorrido manual completo está en README.md, incluida la preparación necesaria para reservar una mesa sucia cuando la otra sigue asignada.

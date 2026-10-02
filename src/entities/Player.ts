@@ -57,12 +57,18 @@ export class Player {
       g.fillStyle(C.green).fillEllipse(-5, -7, 11, 8).fillEllipse(2, -10, 8, 13);
       g.fillStyle(C.coral).fillCircle(6, -5, 4);
       g.lineStyle(2, C.woodDark).lineBetween(-7, 2, 7, 2);
+    } else if (this.carried === 'waste') {
+      g.fillStyle(C.woodDark).fillRoundedRect(-10, -4, 20, 15, 5);
+      g.fillStyle(C.cream).fillTriangle(-7, -4, -1, -12, 7, -3);
+      g.fillStyle(C.green).fillEllipse(6, -4, 10, 5);
+      g.lineStyle(2, C.woodLight).lineBetween(-8, 1, 8, 1);
     } else {
       g.fillStyle(C.cream).fillEllipse(0, 1, 29, 14);
       g.fillStyle(C.woodLight).fillEllipse(0, -1, 22, 10);
       g.fillStyle(C.cream).fillEllipse(2, -2, 10, 7);
       g.fillStyle(C.gold).fillCircle(2, -2, 2.5);
       g.fillStyle(C.green).fillCircle(-6, -2, 2).fillCircle(7, 2, 1.5);
+      if (typeof this.carried === 'object') g.lineStyle(2, C.coral).strokeEllipse(0, 1, 30, 15);
     }
     this.visual.bringToTop(this.facing.y < -0.5 ? this.body : this.cargo);
   }
