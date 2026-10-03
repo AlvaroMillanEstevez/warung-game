@@ -28,6 +28,8 @@ export class InteractionMarker {
     this.bar.fillStyle(C.cream, 0.95).fillRoundedRect(x - 24, y + 36, 48, 8, 4);
     this.bar.fillStyle(C.highlight).fillRoundedRect(x - 22, y + 38, 44 * Math.min(1, progress), 4, 2);
   }
+  destroy(): void { this.ring.destroy(); this.bar.destroy(); this.label.destroy(); }
+
   private drawRing(): void {
     const { x, y } = this.zone.position;
     this.ring.clear();

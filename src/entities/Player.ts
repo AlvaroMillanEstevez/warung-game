@@ -78,7 +78,7 @@ export class Player {
     g.setPosition(side * 42, -16);
     this.feedback.setX(side * 28).setOrigin(side > 0 ? 0 : 1, 0);
     g.fillStyle(C.woodDark).fillRoundedRect(-22, 1, 44, 9, 3);
-    for (let i = 0; i < inventory.ingredients; i++) {
+    for (let i = 0; i < Math.min(inventory.ingredients, 4); i++) {
       const y = 2 - i * 6;
       g.fillStyle(C.woodLight).fillRoundedRect(-22, y - 6, 14, 7, 2);
       g.lineStyle(1, C.woodDark).strokeRoundedRect(-22, y - 6, 14, 7, 2);
@@ -86,12 +86,12 @@ export class Player {
       g.fillStyle(C.coral).fillCircle(-12, y - 5, 2);
     }
     if (inventory.meals > 0) {
-      for (let i = 0; i < inventory.meals; i++) {
+      for (let i = 0; i < Math.min(inventory.meals, 4); i++) {
         g.fillStyle(C.cream).fillEllipse(0, 3 - i * 3, 21, 9);
       }
-      g.fillStyle(C.gold).fillEllipse(0, 3 - inventory.meals * 3, 13, 5);
+      g.fillStyle(C.gold).fillEllipse(0, 3 - Math.min(inventory.meals, 4) * 3, 13, 5);
     }
-    for (let i = 0; i < inventory.waste; i++) {
+    for (let i = 0; i < Math.min(inventory.waste, 4); i++) {
       const y = 3 - i * 6;
       g.fillStyle(C.greenDark).fillRoundedRect(10, y - 6, 12, 9, 3);
       g.lineStyle(1, C.greenLight).strokeRoundedRect(10, y - 6, 12, 9, 3);

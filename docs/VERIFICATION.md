@@ -1,90 +1,78 @@
-# Verificación: autoservicio, carga y movimiento
+# Verificación del Hito 4: personal y primeras mejoras
 
-Fecha: 2026-10-03. Los hitos 1 y 2 y la revisión anterior de inventario/ciclos están aprobados manualmente. Este informe corresponde al autoservicio y movimiento; sustituye las expectativas anteriores de reparto y espera junto a la mesa.
+Fecha: 2026-10-03. Los hitos 1–3, incluido el control táctil y la cámara centrada, están aprobados manualmente por el usuario. Esta entrega queda pendiente de su revisión jugable.
 
-## Herramientas y resultados
+## Entorno y comprobaciones
 
 - WSL Ubuntu 22.04, Node 24.18.0, npm 11.16.0.
-- Phaser 4.2.1, TypeScript 7.0.2 y Vite 8.3.2. Sin dependencias nuevas ni cambios de lockfile.
-- `npm test`: **23 pruebas correctas**, con node:test.
-- `npm run typecheck`: correcto, también dentro de la compilación final.
-- `npm run build`: correcto. JS: 1.416,94 kB / 371,13 kB gzip. Se conserva el aviso de Vite por superar 500 kB.
+- Phaser 4.2.1, TypeScript estricto 7.0.2 y Vite 8.3.2. Sin dependencias nuevas ni cambios del lockfile.
+- `npm test`: 33 pruebas correctas con node:test.
+- `npm run typecheck`: correcto; también se ejecuta dentro del build.
+- `npm run build`: correcto. Se conserva el aviso del bundle de Phaser superior a 500 kB (1.432,61 kB / 375,64 kB gzip).
 - `git diff --check`: correcto.
-- Sin publicación ni push.
+- Sin publicación, push o persistencia.
 
-## Reglas comprobadas
+## Reglas cubiertas
 
-1. Venta atómica: una ración menos y un cobro por cliente; repetir comando no duplica transferencia ni dinero.
-2. Selección de la cabeza elegible más antigua entre filas, sin adelantar. Falta de mesas no bloquea llevar.
-3. Mesa limpia: el cliente sale de caja con plato y empieza a comer únicamente al alcanzar su asiento.
-4. Dos mesas sucias: dos reservas distintas y dos puntos diferentes junto a caja. Clientes conservan plato y no consumen durante espera.
-5. Limpiar conserva la reserva y activa únicamente el cliente correspondiente. Si iba hacia su punto de espera, cambia ruta desde su posición actual, sin teletransporte.
-6. Comer termina una sola vez, deja suciedad, libera mesa y permite la salida física.
-7. Inventario independiente 4/4/4; sin platos vinculados del jugador, reparto ni stock pagado reservado.
-8. Limpieza con ingredientes/platos, bloqueo solo al llenarse residuos y papelera exclusiva para residuos.
-9. Producción continua, cuatro posiciones con tiempos propios, prioridad de recogida y mostrador sin límite.
-10. Reinicio desde camino a espera, espera, camino a mesa, comida y salida; borra platos de clientes, reservas, órdenes, inventario y relojes. Comandos antiguos no vuelven a ser válidos.
-11. Rutas entre destinos explícitos, incluidos los nuevos puntos junto a caja, sin atravesar muebles y respetando velocidad.
-12. Arrastre: zona muerta, curva progresiva, vector limitado, sin acumulación ni aceleración diagonal; desplazamiento equivalente a 20, 30, 60 y 120 FPS.
-13. Margen exterior calculado para contener la vista desde todas las esquinas, incluyendo relaciones de aspecto extremas.
+Se mantienen las pruebas de autoservicio, cobro único, filas sin adelantamientos, limpieza independiente de reservas, movimiento y cámara. Se adaptan los límites iniciales a 8/8/8 y los estados de cocción a su duración capturada.
+
+Las pruebas nuevas cubren:
+
+1. Saldo insuficiente, compra válida, descuento único con nivel esperado, máximos y ausencia de saldo negativo.
+2. Capacidad real de las tres categorías tras 12 y 16; empleados permanecen en 4.
+3. Cocciones activas conservan 4/3 s al mejorar; las nuevas usan 3/2 s. Permanencia iniciada conserva duración, siguiente ciclo usa la mejora.
+4. Mesas ausentes antes de comprar, colocación rechazada sobre el jugador sin cobrar, integración de cuatro reservas y asientos.
+5. Rutas entre todos los puntos de acción, filas, esperas, asientos, entradas y posiciones del personal con cuatro mesas. Se muestrean segmentos para comprobar huellas.
+6. Circuito completo del cocinero con inventario independiente, transferencias solo en destinos y distancia por paso limitada a su velocidad.
+7. Depósito de lotes parciales, stock objetivo 12, espera estable, reanudación al vender y depósitos manuales sobre el objetivo.
+8. Si el stock llega al objetivo durante un viaje a cargar, cancela la carga y libera la posición; conserva ingredientes para demanda posterior.
+9. Limpieza de reservas por antigüedad del pago, cliente que abandona su espera y come al llegar, conservación de asignación.
+10. Prioridad de reservas sobre mesas sin cliente; antigüedad de suciedad para las restantes; vaciado parcial y capacidad completa.
+11. Jugador y empleados compiten por una ración, posición o residuos de mesa: no duplican, pueden trabajar sobre otro recurso y liberan reservas.
+12. Invalidación, ruta imposible y reinicio no dejan reservas huérfanas; reinicio restaura límites, tiempos, personal y dos mesas.
+
+El dinero y ciertos estados específicos se preparan en pruebas como fixtures. No existe botón de dinero gratis ni cambio del saldo inicial normal.
 
 ## Navegador de escritorio
 
-Edge/Chromium 154.0.4258.48, headless mediante Playwright local. Sin errores de consola ni excepciones.
+Edge/Chromium mediante Playwright instalado en el entorno, en modo headless; no se añadió al proyecto. Sin errores de consola ni excepciones durante las pruebas correctas.
 
-- Producción completa de cuatro raciones con teclado y permanencias reales, desde frigorífico hasta depósito.
-- Comprobación de +1 al recoger y −1 al depositar.
-- Dos clientes recibieron plato en caja, caminaron a mesas limpias, comieron y dejaron suciedad.
-- Después, dos clientes reservaron esas mesas sucias y esperaron con plato junto a caja; dos ventas para llevar continuaron. Se comprobaron stock, dinero y ausencia de cobros repetidos.
-- Limpieza con ingredientes y un plato transportados: solo el cliente de esa mesa comenzó su recorrido y comió al llegar.
-- Papelera vació residuos y conservó alimentos.
-- Cámara centrada directamente en las cuatro esquinas transitables, sin límites del restaurante ni cambio de proporciones.
-- Extensión exterior contenía toda la vista a 1440 × 1000, 390 × 844, 844 × 390, 320 × 568, 568 × 320 y 2560 × 1080, sin scroll.
-- Reinicio eliminó clientes esperando, sus platos, reservas, temporizadores y feedback.
+- Apertura del panel con saldo cero: botones deshabilitados y fondos insuficientes.
+- Abrir mientras se mantiene una tecla cancela movimiento/permanencia; reloj y posición quedan congelados.
+- Doble clic en transporte compra un solo nivel y descuenta 60 una vez.
+- Cierre sin desplazamiento residual ni tiempo acumulado; compra de ambos niveles y contrataciones desde el panel.
+- Recorrido con teclado hasta Caja. Con reloj real, el cocinero completó frigorífico → hornillo → depósito y el jugador cobró al menos dos ventas estando quieto.
+- Con ambos empleados y cuatro mesas se ejecutaron otros 600 s activos mediante pasos de 50 ms sobre la escena: 49 ventas, 21 limpiezas y 48 depósitos. Los empleados respetaron velocidad y muebles.
+- En esa simulación de demanda normal bastó habitualmente la mesa 1. En el escenario adicional, los cuatro clientes alcanzaron físicamente sus respectivos asientos y quedaron comiendo en las mesas 1, 2, 3 y 4.
+- Cooperación manual en el hornillo mediante permanencia de la escena: el cocinero fijó la posición 0 y el jugador recogió la ración de la posición 1.
+- Reinicio con panel abierto: cerró diálogo, eliminó vistas del personal y mesas adicionales, liberó reservas y restauró saldo, carga y tiempos.
 
-El recorrido de producción y las interacciones se realizaron con controles reales. Para reproducir escenarios concretos se fijaron intenciones y se prepararon raciones/carga adicionales mediante operaciones del modelo. Las posiciones de esquina se fijaron como escenarios de cámara, sin confundirlo con navegación manual.
+La prueba prolongada avanzó la simulación de manera controlada; no se presenta como diez minutos de rendimiento sostenido a tiempo real. Las pruebas de cooperación fijaron posiciones iniciales y recursos para reproducir la competencia; después usaron las acciones de la escena.
 
-## Control táctil emulado
+## Móvil emulado
 
-Contexto táctil a 390 × 844, con eventos de contacto, arrastre, liberación y cancelación:
+Contexto con eventos táctiles a 390 × 844 y revisión de interfaz a 320 × 568, 844 × 390 y 568 × 320.
 
-- Mantener un desplazamiento de 60 px sin nuevos eventos conservó origen y vector mientras cambió el scroll de cámara.
-- La magnitud medida fue 0,6979536; distancia recorrida concordó con 185 × magnitud × tiempo activo.
-- Soltar puso el vector a cero inmediatamente y no hubo desplazamiento posterior.
-- Ruido dentro de zona muerta no movió al jugador.
-- Segundo dedo ignorado, sin heredar control al soltar el primero.
-- Cancelación, pérdida de foco y cambio de orientación eliminaron movimiento residual.
-- Recorrido táctil de caja con dos reservas sucias y una venta para llevar; limpieza de ambas mesas y comida automática.
-- HUD anclado y contenido en 320 × 568, 390 × 844, 568 × 320 y 844 × 390.
-- Sin errores de consola ni excepciones.
+- Abrir con un contacto capturado cancela puntero, vector y progreso; reloj/posición congelados. La apertura de este caso se disparó desde DOM para mantener el contacto.
+- Compras reales mediante taps para todas las opciones; el panel no mueve al jugador.
+- Tras cerrar, un arrastre nuevo vuelve a desplazarlo; el anterior no se recupera.
+- Diálogo contenido en pantalla, scroll interior, última compra y cierre accesibles, sin desbordamiento horizontal; botón Mejoras de al menos 44 px.
+- Cooperación de limpieza sobre dos mesas sucias preparadas: el empleado reservó mesa 1; el jugador limpió mesa 2 mediante su permanencia y recibió un residuo. El empleado terminó la otra y descargó su residuo parcial en papelera. Ambas limpias, sin reservas huérfanas.
+- Reinicio táctil correcto, sin errores de consola.
 
-La preparación de mesas sucias en esta prueba se hizo mediante ventas, movimiento y consumo del modelo. Caja y limpieza posteriores usaron arrastre y permanencia del juego.
+Las capturas finales se inspeccionaron en escritorio y móvil. Con carga 16/16/16, los contadores del HUD fueron exactos y la lista de comandos gráficos de las pilas tuvo el mismo tamaño que con carga 4/4/4 (2016 entradas), confirmando que no crece con los nuevos límites. También se verificó que el reinicio repone el temporizador del mensaje y deja progreso cero. Los marcadores de interacción siguen visibles y los círculos técnicos de filas/espera están ocultos por defecto.
 
-### Hallazgo sobre el arrastre
+## Evidencia y límites
 
-No se confirmó un error de coordenadas ni acumulación: la implementación anterior ya usaba origen fijo y clientX/clientY, independientemente de la cámara. Sí había seguimiento de cámara con retraso (0,12) y una respuesta que alcanzaba máximo a 58 px.
+Evidencia local en `artifacts/`, excluida de Git:
 
-Se aplica seguimiento directo, recorrido de 76 px, zona muerta explícita de 12 px y curva de exponente 1,25. Esto ofrece más recorrido para regular velocidad y conserva la parada inmediata. Son parámetros de prueba; la comodidad no queda demostrada por estas comprobaciones y requiere evaluación del usuario en dispositivo físico.
+- `hito4-desktop.cjs` y `hito4-desktop-results.json`.
+- `hito4-mobile.cjs` y `hito4-mobile-results.json`.
+- `hito4-visual.cjs`, capturas `hito4-*.png` y resultados de revisión visual.
+- Los archivos `selfservice-*`, `revision-*` y `hito3-*` corresponden a hitos anteriores.
 
-## Revisión visual final
+Pendientes: revisión manual del Hito 4, balance económico y sensaciones del panel en teléfono físico. No se ha certificado Safari/iOS, Firefox, dispositivos lentos ni sesiones de juego de varias horas. La emulación no demuestra comodidad táctil. Los controles previos sí cuentan con aprobación manual del usuario.
 
-Se inspeccionaron las pilas de 1, 2, 3 y 4 ingredientes/residuos, así como carga mixta completa en las cuatro direcciones. Se corrigió una ocultación de los ingredientes al mirar hacia arriba: la bandeja queda al lado del cuerpo y el texto de transferencia por encima, sin tapar cara o puntos de acción.
+Se conserva el límite de delta de 100 ms, sin avance offline. Personajes pueden cruzarse. No hay persistencia: recargar reinicia. No se aumentó la demanda para justificar mesas nuevas.
 
-Se revisaron capturas de clientes esperando junto a caja con plato, limpieza, esquinas con césped/acera/calle y cámara centrada. Tras el ajuste de carga se verificaron de nuevo retrato 390 × 844, horizontal 568 × 320, feedback y reinicio, sin errores de consola. Las pruebas y build finales se ejecutaron después de ese ajuste.
-
-Evidencia local excluida de Git:
-- `artifacts/selfservice-desktop.cjs`, `selfservice-mobile.cjs`, `selfservice-visual.cjs`.
-- Informes `selfservice-desktop-results.json`, `selfservice-mobile-results.json`, `selfservice-visual-results.json`.
-- Capturas `selfservice-*`; para carga usar las capturas finales `selfservice-cargo-final-*`.
-- Las evidencias `revision-*` y `hito3-*` corresponden a diseños anteriores.
-
-## Pendiente y límites
-
-- Valoración manual de autoservicio, carga y sensaciones del movimiento.
-- Teléfono/tableta físico, Safari/iOS, Firefox, dispositivos lentos y sesiones prolongadas.
-- La emulación no acredita comodidad táctil, muescas o barras dinámicas de un dispositivo real.
-- Arte y balance provisionales; personajes pueden cruzarse.
-- Delta máximo de 100 ms: por debajo de 10 FPS el juego avanza más despacio; sin progreso offline.
-- Sin empleados, mejoras, nuevas recetas, tutoriales ni persistencia. El futuro camarero se limita a limpieza y residuos.
-
-El recorrido manual está actualizado en README.md. Detener el desarrollo tras esta revisión para que el usuario pruebe.
+El recorrido de cada compra y de cooperación está en README.md. Detener el desarrollo tras este hito.

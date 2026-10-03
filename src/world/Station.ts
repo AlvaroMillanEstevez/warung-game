@@ -1,11 +1,14 @@
 import Phaser from 'phaser';
 import { COLORS as C } from '../config';
+import { TABLE_POSITIONS } from './layout';
 import type { StationData } from './layout';
 import type { Restaurant } from '../simulation/Restaurant';
 
 export class Station {
   readonly visual: Phaser.GameObjects.Container;
   private readonly highlight: Phaser.GameObjects.Graphics;
+  private readonly shadow: Phaser.GameObjects.Ellipse;
+  private chair?: Phaser.GameObjects.Graphics;
   private selected = false;
   private readonly productionArt: Phaser.GameObjects.Graphics;
   private readonly statusLabel: Phaser.GameObjects.Text;
@@ -14,13 +17,17 @@ export class Station {
   constructor(scene: Phaser.Scene, readonly data: StationData) {
     const { x, y, width: w, height: d } = data.footprint;
     const lift = data.height;
-    scene.add.ellipse(x + w / 2 + 5, y + d - 2, w + 16, 25, C.shadow, 0.15).setDepth(-2);
+    this.shadow = scene.add.ellipse(x + w / 2 + 5, y + d - 2, w + 16, 25, C.shadow, 0.15).setDepth(-2);
     const g = scene.add.graphics();
     this.visual = scene.add.container(x, y, [g]).setDepth(y + d);
     const tabletop = data.kind === 'table';
     const front = data.kind === 'fridge' ? C.green : data.kind === 'stove' ? C.metal : data.kind === 'bin' ? C.greenDark : C.wood;
     const top = data.kind === 'fridge' ? C.greenLight : data.kind === 'stove' ? C.cream : data.kind === 'bin' ? C.greenLight : C.woodLight;
     if (tabletop) {
+      const seat = TABLE_POSITIONS[data.id]!.seat;
+      this.chair = scene.add.graphics().setDepth(-90);
+      this.chair.fillStyle(C.woodDark).fillRoundedRect(seat.x - 11, seat.y - 5, 22, 10, 3);
+      this.chair.fillStyle(C.woodLight).fillEllipse(seat.x, seat.y - 8, 28, 15);
       g.fillStyle(C.woodDark).fillRoundedRect(10, d - lift - 6, 10, lift + 6, 2).fillRoundedRect(w - 20, d - lift - 6, 10, lift + 6, 2);
       g.fillStyle(C.woodDark).fillRoundedRect(4, -lift + 9, 8, lift + 4, 2).fillRoundedRect(w - 12, -lift + 9, 8, lift + 4, 2);
       g.fillStyle(C.wood).fillRoundedRect(0, -lift + 8, w, d, 8);
@@ -68,7 +75,7 @@ export class Station {
         g.fillStyle(C.green).fillRoundedRect(58, -lift + 22, 20, 22, 3);
         g.fillStyle(C.cream).fillRect(61, -lift + 17, 14, 12);
         g.lineStyle(1, C.wallShade).lineBetween(64, -lift + 20, 73, -lift + 20);
-        const number = scene.add.text(w - 15, d - lift - 13, data.id === 'table-1' ? '01' : '02', { fontFamily: 'Georgia, serif', fontSize: '12px', color: '#975f3f' }).setOrigin(0.5);
+        const number = scene.add.text(w - 15, d - lift - 13, data.id.slice(-1).padStart(2, '0'), { fontFamily: 'Georgia, serif', fontSize: '12px', color: '#975f3f' }).setOrigin(0.5);
         this.visual.add(number);
         break;
       }
@@ -96,7 +103,7 @@ export class Station {
     const table = restaurant.table(this.data.id);
     const customer = table?.customerId ? restaurant.customer(table.customerId) : undefined;
     const slots = production.stove;
-    const stoveKey = slots.map(slot => slot.status === 'cooking' ? Math.round(slot.elapsedMs / production.cookingMs * 100) : slot.status).join(',');
+    const stoveKey = slots.map(slot => slot.status === 'cooking' ? Math.round(slot.elapsedMs / slot.durationMs * 100) : slot.status).join(',');
     const key = [stoveKey, production.availablePortions,
       table?.cleanliness, customer?.id, customer?.phase].join(':');
     if (key === this.lastProductionKey) return;
@@ -119,7 +126,7 @@ export class Station {
         g.fillStyle(C.gold).fillCircle(x + 2, y - 2, 2);
         g.fillStyle(C.greenDark).fillRect(x - 12, y + 8, 24, 3);
         g.fillStyle(ready ? C.highlight : C.gold).fillRect(x - 12, y + 8,
-          24 * (ready ? 1 : slot.elapsedMs / production.cookingMs), 3);
+          24 * (ready ? 1 : slot.elapsedMs / slot.durationMs), 3);
       });
     } else if (this.data.kind === 'table') {
       const dirty = table!.cleanliness === 'dirty';
@@ -149,6 +156,11 @@ export class Station {
         g.fillStyle(C.green).fillCircle(px - 5, py, 1.5);
       }
     }
+  }
+
+  destroy(): void {
+    this.visual.destroy(); this.shadow.destroy(); this.chair?.destroy();
+    this.highlight.destroy(); this.statusLabel.destroy();
   }
 
   setSelected(selected: boolean): void {

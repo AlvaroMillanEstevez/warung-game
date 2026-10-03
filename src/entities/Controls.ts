@@ -13,6 +13,7 @@ export class Controls {
   private pointerId: number | null = null;
   private origin: Point = { x: 0, y: 0 };
   private touch: Point = { x: 0, y: 0 };
+  private blocked = false;
   paused = document.hidden || !document.hasFocus();
 
   constructor(private readonly surface: HTMLCanvasElement, private readonly onCancel: (discardFrame?: boolean) => void) {
@@ -22,7 +23,7 @@ export class Controls {
       if (event.target instanceof HTMLElement && event.target.closest('button, input, textarea, select, [contenteditable], [data-ui]')) return;
       if (!MOVE_KEYS.has(event.code)) return;
       event.preventDefault();
-      if (event.repeat || this.paused) return;
+      if (event.repeat || this.paused || this.blocked) return;
       this.keys.add(event.code);
       // Cancel immediately, so even a tap between two frames counts as an intent to move.
       this.onCancel();
@@ -39,7 +40,7 @@ export class Controls {
     surface.addEventListener('pointerdown', (event) => {
       if (event.target !== surface || this.pointerId !== null || !event.isPrimary || event.button !== 0) return;
       event.preventDefault();
-      if (document.hidden) return;
+      if (document.hidden || this.blocked) return;
       document.querySelector<HTMLElement>('#game')!.focus({ preventScroll: true });
       if (this.paused) this.setPaused(false);
       else this.onCancel();
@@ -65,7 +66,7 @@ export class Controls {
   }
 
   get movement(): Point {
-    if (this.paused) return { x: 0, y: 0 };
+    if (this.paused || this.blocked) return { x: 0, y: 0 };
     let x = Number(this.keys.has('KeyD') || this.keys.has('ArrowRight')) - Number(this.keys.has('KeyA') || this.keys.has('ArrowLeft'));
     let y = Number(this.keys.has('KeyS') || this.keys.has('ArrowDown')) - Number(this.keys.has('KeyW') || this.keys.has('ArrowUp'));
     if (this.pointerId !== null) ({ x, y } = this.touch);
@@ -75,8 +76,10 @@ export class Controls {
 
   get tryingToMove(): boolean {
     // Opposing keys and pushing into furniture still count, even with zero physical displacement.
-    return !this.paused && (this.keys.size > 0 || Math.hypot(this.touch.x, this.touch.y) > 0);
+    return !this.paused && !this.blocked && (this.keys.size > 0 || Math.hypot(this.touch.x, this.touch.y) > 0);
   }
+
+  setBlocked(blocked: boolean): void { this.blocked = blocked; this.reset(); }
 
   reset(): void {
     this.keys.clear();

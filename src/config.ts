@@ -10,7 +10,7 @@ export const PLAYER = {
   collisionStep: 4,
 } as const;
 export const INTERACTION = { radius: 48, dwellMs: 1500, messageDuration: 3200 } as const;
-export const PRODUCTION = { cookingMs: 4000, stoveSlots: 4, inventory: { ingredients: 4, meals: 4, waste: 4 } } as const;
+export const PRODUCTION = { cookingMs: 4000, stoveSlots: 4, inventory: { ingredients: 8, meals: 8, waste: 8 } } as const;
 export const CUSTOMERS = {
   arrivalMs: 8000, dineInChance: 0.5, maxCustomers: 10, maxQueueLength: 3,
   speed: 90, eatingMs: 6000, price: 10,
@@ -32,3 +32,16 @@ export const COLORS = {
   coral: 0xc56346, gold: 0xe8bb68, metal: 0xabc4b4,
   skin: 0xd9996c, hair: 0x423326, highlight: 0x428b68,
 } as const;
+
+export const DEBUG = { customerMarkers: false } as const;
+export const STAFF = { actionMs: 1500, speed: 110, capacity: 4, cookStockTarget: 12 } as const;
+export const UPGRADES = {
+  cook: { prices: [100] },
+  cleaner: { prices: [80] },
+  transport: { prices: [60, 120], capacities: [8, 12, 16] },
+  actionSpeed: { prices: [80, 160], durationsMs: [1500, 1200, 900] },
+  stoveSpeed: { prices: [100, 200], durationsMs: [4000, 3000, 2000] },
+  'table-3': { prices: [80] },
+  'table-4': { prices: [140] },
+} as const;
+export type UpgradeId = keyof typeof UPGRADES;

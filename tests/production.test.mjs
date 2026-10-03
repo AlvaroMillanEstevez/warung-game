@@ -9,9 +9,9 @@ function cookOne(p) {
   p.update(p.cookingMs);
   assert.ok(p.perform('take-meal'));
 }
-test('Cuatro ingredientes con cuatro ciclos completos sin salir; lleno espera sin progreso', () => {
+test('Ocho ingredientes con ocho ciclos completos sin salir; lleno espera sin progreso', () => {
   const p = new Production(), dwell = new DwellInteraction();
-  for (let i = 1; i <= 4; i++) {
+  for (let i = 1; i <= 8; i++) {
     const target = { id: 'fridge', action: p.availableAt('fridge').action };
     assert.equal(dwell.update(target, ['fridge'], false, 1499), null);
     assert.ok(p.perform(dwell.update(target, ['fridge'], false, 1)));
@@ -28,8 +28,8 @@ test('Cuatro posiciones con tiempos independientes; lista sigue ocupada hasta re
     assert.ok(p.perform('start-cooking'));
     p.update(1000);
   }
-  assert.deepEqual(p.stove, [{ status: 'ready' }, { status: 'cooking', elapsedMs: 3000 },
-    { status: 'cooking', elapsedMs: 2000 }, { status: 'cooking', elapsedMs: 1000 }]);
+  assert.deepEqual(p.stove, [{ status: 'ready' }, { status: 'cooking', elapsedMs: 3000, durationMs: 4000 },
+    { status: 'cooking', elapsedMs: 2000, durationMs: 4000 }, { status: 'cooking', elapsedMs: 1000, durationMs: 4000 }]);
   p.perform('take-ingredients');
   assert.equal(p.perform('start-cooking', 0), null);
   assert.equal(p.perform('take-meal', 1), null);
@@ -42,7 +42,7 @@ test('Cuatro posiciones con tiempos independientes; lista sigue ocupada hasta re
 });
 test('Prioriza recogida, después carga; cargar con platos llenos y posición vacía es válido', () => {
   const p = new Production();
-  for (let i = 0; i < 4; i++) cookOne(p);
+  for (let i = 0; i < 8; i++) cookOne(p);
   p.perform('take-ingredients');
   assert.equal(p.availableAt('stove').action, 'start-cooking');
   p.perform('start-cooking'); p.update(4000);
@@ -52,18 +52,18 @@ test('Prioriza recogida, después carga; cargar con platos llenos y posición va
   assert.equal(p.availableAt('stove').action, 'take-meal');
   p.perform('take-meal');
   assert.equal(p.availableAt('stove').action, 'start-cooking');
-  assert.equal(p.inventory.meals, 4);
+  assert.equal(p.inventory.meals, 8);
 });
 test('Capacidades independientes de ingredientes, platos y residuos sin distinciones de pedido', () => {
   const p = new Production();
-  for (let i = 0; i < 4; i++) cookOne(p);
-  for (let i = 0; i < 4; i++) { p.perform('take-ingredients'); assert.ok(p.collectWaste()); }
-  assert.deepEqual(p.inventory, { ingredients: 4, meals: 4, waste: 4, limits: p.limits });
+  for (let i = 0; i < 8; i++) cookOne(p);
+  for (let i = 0; i < 8; i++) { p.perform('take-ingredients'); assert.ok(p.collectWaste()); }
+  assert.deepEqual(p.inventory, { ingredients: 8, meals: 8, waste: 8, limits: p.limits });
   assert.equal(p.collectWaste(), false); assert.equal(p.perform('take-ingredients'), null);
   p.perform('start-cooking'); p.update(4000);
   assert.equal(p.perform('take-meal'), null);
   p.perform('store-meal');
-  assert.ok(p.perform('take-meal')); assert.equal(p.inventory.meals, 4);
+  assert.ok(p.perform('take-meal')); assert.equal(p.inventory.meals, 8);
 });
 test('Mostrador sin límite; papelera solo residuos y venta descuenta una ración', () => {
   const p = new Production();

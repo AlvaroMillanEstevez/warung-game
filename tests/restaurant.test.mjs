@@ -139,20 +139,20 @@ test('Limpieza usa el mismo punto accesible, requiere capacidad de residuos y co
   until(r, () => r.table(sale.tableId).cleanliness === 'dirty');
   const points = INTERACTION_ZONES.filter(z => z.stationId === sale.tableId);
   assert.equal(points.length, 1);
-  for (let i = 0; i < 4; i++) r.production.collectWaste();
+  for (let i = 0; i < 8; i++) r.production.collectWaste();
   assert.equal(r.offer(points[0]).command, null);
   r.production.perform('discard'); cook(r.production); r.production.perform('take-ingredients');
   act(r, sale.tableId);
-  assert.equal(r.production.inventory.waste, 4);
+  assert.equal(r.production.inventory.waste, 8);
   assert.equal(r.production.inventory.ingredients, 1); assert.equal(r.production.inventory.meals, 1);
   assert.equal(r.table(sale.tableId).cleanliness, 'clean');
   assert.equal(r.customer(id)?.carryingMeal ?? false, false);
 });
 
-test('Caja continua llena 4/4/4; sin stock no acumula tiempo y al reponer inicia un ciclo completo', () => {
+test('Caja continua llena 8/8/8; sin stock no acumula tiempo y al reponer inicia un ciclo completo', () => {
   const r = make(), d = new DwellInteraction(); stock(r, 2);
-  for (let i = 0; i < 4; i++) { cook(r.production); r.production.collectWaste(); }
-  for (let i = 0; i < 4; i++) r.production.perform('take-ingredients');
+  for (let i = 0; i < 8; i++) { cook(r.production); r.production.collectWaste(); }
+  for (let i = 0; i < 8; i++) r.production.perform('take-ingredients');
   const before = r.production.inventory;
   queued(r, 'takeaway'); queued(r, 'takeaway'); queued(r, 'takeaway');
   let pending = null;

@@ -49,10 +49,23 @@ export const QUEUE_POINTS = {
 export const TABLE_POSITIONS: Readonly<Record<string, { seat: Point }>> = {
   'table-1': { seat: { x: 395, y: 438 } },
   'table-2': { seat: { x: 716, y: 438 } },
+  'table-3': { seat: { x: 90, y: 368 } },
+  'table-4': { seat: { x: 560, y: 438 } },
 };
 
 // One distinct waiting position per reservable table, beside checkout and outside both queues.
 export const CLEANING_WAIT_POINTS: Readonly<Record<string, Point>> = {
   'table-1': { x: 780, y: 185 },
   'table-2': { x: 780, y: 278 },
+  'table-3': { x: 480, y: 185 },
+  'table-4': { x: 480, y: 295 },
 };
+
+export const EXTRA_TABLES: readonly StationData[] = [
+  { id: 'table-3', name: 'Mesa 3', kind: 'table', footprint: { x: 115, y: 335, width: 106, height: 78 }, height: 34, interaction: { x: 239, y: 372 } },
+  { id: 'table-4', name: 'Mesa 4', kind: 'table', footprint: { x: 438, y: 405, width: 106, height: 78 }, height: 34, interaction: { x: 491, y: 510 } },
+];
+export const STAFF_POSITIONS = { cook: { x: 225, y: 300 }, cleaner: { x: 225, y: 552 } } as const;
+export function tableZone(table: StationData): InteractionZone {
+  return { id: table.id, stationId: table.id, name: table.name, role: 'table', position: table.interaction };
+}

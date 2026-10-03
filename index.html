@@ -14,16 +14,23 @@
       <div class="hud" aria-label="Estado del restaurante">
         <header class="hud-heading">
           <h1>warung kita<span>.</span></h1>
-          <button id="reset-test" data-ui type="button" title="Herramienta provisional: reiniciar clientes, mesas, pedidos, producción, dinero y posición"><span>DEV · provisional</span>Reiniciar prueba</button>
+          <div class="hud-actions"><button id="open-upgrades" data-ui type="button">Mejoras</button>
+          <button id="reset-test" data-ui type="button" title="Herramienta provisional: reiniciar clientes, mesas, pedidos, producción, dinero y posición"><span>DEV · provisional</span>Reiniciar prueba</button></div>
         </header>
         <div class="status-strip">
-          <div class="status-chip"><span>INVENTARIO</span><strong id="carried-status">Ingredientes 0/4 · Platos 0/4 · Residuos 0/4</strong></div>
+          <div class="status-chip"><span>INVENTARIO</span><strong id="carried-status">Ingredientes 0/8 · Platos 0/8 · Residuos 0/8</strong></div>
           <div class="status-chip"><span>HORNILLO</span><strong id="stove-status">Vacío</strong></div>
           <div class="status-chip"><span>MOSTRADOR</span><strong id="counter-status">0 disponibles</strong></div>
           <div class="status-chip"><span>CAJA</span><strong id="money-status">0 monedas</strong></div>
         </div>
         <p id="queue-status" class="queue-status">En fila · aquí 0 · llevar 0</p>
       </div>
+      <dialog id="upgrades-panel" data-ui aria-labelledby="upgrades-title">
+        <header class="upgrades-heading"><div><h2 id="upgrades-title">Tu local, paso a paso</h2><p id="upgrade-money"></p></div><button id="close-upgrades" type="button" aria-label="Cerrar mejoras">Cerrar</button></header>
+        <p class="upgrades-intro">Mejoras · el restaurante está en pausa</p>
+        <div id="upgrade-list"></div>
+        <p id="upgrade-feedback" role="status" aria-live="polite"></p>
+      </dialog>
       <div id="pause-notice" class="pause-notice" hidden>En pausa · vuelve al local para continuar</div>
       <div class="context" aria-live="polite" aria-atomic="true"><strong id="station-name">Cocina · cobra · limpia</strong><p id="interaction-hint">Acércate al frigorífico y quédate quieto.</p></div>
       <p id="interaction-message" class="message" role="status" aria-live="polite" aria-atomic="true" hidden></p>

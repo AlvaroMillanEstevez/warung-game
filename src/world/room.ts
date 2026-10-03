@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { COLORS as C, EXTERIOR, ROOM, WORLD } from '../config';
-import { CLEANING_WAIT_POINTS, QUEUE_POINTS, TABLE_POSITIONS } from './layout';
+import { COLORS as C, DEBUG, EXTERIOR, ROOM, WORLD } from '../config';
+import { CLEANING_WAIT_POINTS, QUEUE_POINTS } from './layout';
 import type { Rect } from './layout';
 
 export function drawRoom(scene: Phaser.Scene): void {
@@ -40,17 +40,13 @@ export function drawRoom(scene: Phaser.Scene): void {
   // Explicit waiting positions are visual guides, never character collision bodies.
   for (const intent of ['dine-in', 'takeaway'] as const) {
     const points = QUEUE_POINTS[intent];
-    for (const point of points) g.lineStyle(1, intent === 'takeaway' ? C.coral : C.green, 0.45).strokeEllipse(point.x, point.y, 27, 13);
+    if (DEBUG.customerMarkers) for (const point of points) g.lineStyle(1, intent === 'takeaway' ? C.coral : C.green, 0.45).strokeEllipse(point.x, point.y, 27, 13);
     const middle = points[intent === 'dine-in' ? 2 : 1]!;
     scene.add.text(middle.x, middle.y + 17, intent === 'takeaway' ? 'FILA · LLEVAR' : 'FILA · COMER AQUÍ', {
       fontFamily: 'Arial, sans-serif', fontSize: '10px', color: intent === 'takeaway' ? '#995336' : '#315e50',
     }).setOrigin(0.5, 0).setDepth(-90);
   }
-  for (const { seat } of Object.values(TABLE_POSITIONS)) {
-    g.fillStyle(C.woodDark).fillRoundedRect(seat.x - 11, seat.y - 5, 22, 10, 3);
-    g.fillStyle(C.woodLight).fillEllipse(seat.x, seat.y - 8, 28, 15);
-  }
-  for (const point of Object.values(CLEANING_WAIT_POINTS)) {
+  if (DEBUG.customerMarkers) for (const point of Object.values(CLEANING_WAIT_POINTS)) {
     g.lineStyle(1, C.coral, 0.65).strokeEllipse(point.x, point.y, 26, 13);
   }
   // Wall window.

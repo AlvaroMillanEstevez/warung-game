@@ -2,12 +2,13 @@ import Phaser from 'phaser';
 import { INTERACTION, PLAYER } from '../config';
 import { Controls } from '../entities/Controls';
 import { Player } from '../entities/Player';
+import { EmployeeView } from '../entities/EmployeeView';
+import { UpgradePanel } from '../ui/UpgradePanel';
 import { CustomerView } from '../entities/CustomerView';
 import { Restaurant, actionKey } from '../simulation/Restaurant';
 import type { Offer, RestaurantAction } from '../simulation/Restaurant';
 import { DwellInteraction } from '../simulation/DwellInteraction';
 import { closestZone } from '../world/interaction';
-import { INTERACTION_ZONES, STATIONS } from '../world/layout';
 import type { InteractionZone } from '../world/layout';
 import { frameRestaurant } from '../world/camera';
 import { drawExterior, drawRoom } from '../world/room';
@@ -22,6 +23,8 @@ export class RestaurantScene extends Phaser.Scene {
   private player!: Player;
   private exterior!: Phaser.GameObjects.Graphics;
   private controls!: Controls;
+  private upgrades!: UpgradePanel;
+  private readonly employeeViews = new Map<string, EmployeeView>();
   private stations: Station[] = [];
   private markers: InteractionMarker[] = [];
   private readonly customerViews = new Map<string, CustomerView>();
@@ -31,7 +34,7 @@ export class RestaurantScene extends Phaser.Scene {
   private readonly dwell = new DwellInteraction();
   private messageRemainingMs = 0;
   private discardNextDelta = true;
-  private readonly obstacles = STATIONS.map(station => station.footprint);
+  private get obstacles() { return this.restaurant.obstacles; }
   private readonly nameElement = document.querySelector<HTMLElement>('#station-name')!;
   private readonly hintElement = document.querySelector<HTMLElement>('#interaction-hint')!;
   private readonly messageElement = document.querySelector<HTMLElement>('#interaction-message')!;
@@ -47,20 +50,26 @@ export class RestaurantScene extends Phaser.Scene {
   create(): void {
     this.exterior = this.add.graphics().setDepth(-200);
     drawRoom(this);
-    this.stations = STATIONS.map(data => new Station(this, data));
-    this.markers = INTERACTION_ZONES.map(data => new InteractionMarker(this, data));
+    this.syncLayout();
     this.player = new Player(this);
     this.controls = new Controls(this.game.canvas, discardFrame => {
       this.cancelInteraction();
       if (discardFrame) this.discardNextDelta = true;
     });
     this.restaurant.reset();
+    this.upgrades = new UpgradePanel(this.restaurant, () => this.player.position, open => {
+      this.controls.setBlocked(open);
+      this.cancelInteraction();
+      this.discardNextDelta = true;
+    }, () => { this.syncLayout(); this.renderState(); });
     this.dwell.reset();
     this.resizeCamera();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.resizeCamera, this);
     this.resetButton.addEventListener('click', this.resetTest);
     const cleanup = (): void => {
+      this.upgrades.destroy();
       this.controls.destroy();
+      this.employeeViews.clear();
       this.scale.off(Phaser.Scale.Events.RESIZE, this.resizeCamera, this);
       this.resetButton.removeEventListener('click', this.resetTest);
       this.customerViews.clear();
@@ -73,7 +82,7 @@ export class RestaurantScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
-    if (this.controls.paused || document.hidden) {
+    if (this.controls.paused || document.hidden || this.upgrades.isOpen) {
       this.cancelInteraction();
       this.discardNextDelta = true;
       return;
@@ -85,24 +94,23 @@ export class RestaurantScene extends Phaser.Scene {
     this.restaurant.update(activeDelta);
     if (this.restaurant.production.stoveSummary.ready > previousReady) this.showMessage('El nasi goreng está listo para recoger.');
     this.player.update(this.controls.movement, activeDelta, this.obstacles);
-    this.selected = closestZone(this.player.position, INTERACTION_ZONES, this.obstacles);
+    this.selected = closestZone(this.player.position, this.restaurant.interactionZones, this.obstacles);
     if (this.pending && (this.pending.zoneId !== this.selected?.id || this.controls.tryingToMove ||
         this.restaurant.validate(this.pending.command))) {
-      this.pending = null;
-      this.dwell.cancel();
+      this.cancelInteraction();
     }
     if (!this.pending && this.selected && !this.controls.tryingToMove) {
       const offer = this.restaurant.offer(this.selected);
-      if (offer.command) this.pending = { zoneId: this.selected.id, command: offer.command, label: offer.label };
+      if (offer.command && this.restaurant.beginAction(offer.command)) this.pending = { zoneId: this.selected.id, command: offer.command, label: offer.label };
     }
     // The command (including the exact customer/table) stays fixed throughout the dwell.
     // Invalid commands lose all progress before a fresh command is selected.
     const valid = this.pending && !this.restaurant.validate(this.pending.command);
-    const inside = INTERACTION_ZONES.filter(zone =>
+    const inside = this.restaurant.interactionZones.filter(zone =>
       Math.hypot(this.player.position.x - zone.position.x, this.player.position.y - zone.position.y) <= INTERACTION.radius).map(zone => zone.id);
     const completed = this.dwell.update(
       this.selected ? { id: this.selected.id, action: valid ? actionKey(this.pending!.command) : null } : null,
-      inside, this.controls.tryingToMove, activeDelta,
+      inside, this.controls.tryingToMove, activeDelta, this.restaurant.playerActionMs,
     );
     if (completed && this.pending) {
       const before = this.restaurant.production.inventory;
@@ -119,14 +127,17 @@ export class RestaurantScene extends Phaser.Scene {
   }
 
   private cancelInteraction(): void {
+    this.restaurant.cancelAction();
     this.pending = null;
     this.dwell.cancel();
     for (const marker of this.markers) marker.update(false, 0);
   }
 
   private readonly resetTest = (): void => {
+    this.upgrades.close();
     this.controls.reset();
     this.restaurant.reset();
+    this.syncLayout();
     this.player.clearFeedback();
     this.dwell.reset();
     this.pending = null;
@@ -135,6 +146,8 @@ export class RestaurantScene extends Phaser.Scene {
     Object.assign(this.player.position, PLAYER.spawn);
     this.player.update({ x: 0, y: 0 }, 0, this.obstacles);
     this.resizeCamera();
+    this.messageRemainingMs = 0;
+    this.messageElement.hidden = true;
     this.showMessage('Restaurante reiniciado. Todo listo para empezar.');
     this.renderState();
     document.querySelector<HTMLElement>('#game')!.focus({ preventScroll: true });
@@ -162,6 +175,17 @@ export class RestaurantScene extends Phaser.Scene {
       { command: this.pending.command, label: this.pending.label };
   }
 
+  private syncLayout(): void {
+    const ids = this.restaurant.stations.map(s => s.id).join(',');
+    if (ids === this.stations.map(s => s.data.id).join(',')) return;
+    this.cancelInteraction();
+    this.selected = null;
+    for (const station of this.stations) station.destroy();
+    for (const marker of this.markers) marker.destroy();
+    this.stations = this.restaurant.stations.map(data => new Station(this, data));
+    this.markers = this.restaurant.interactionZones.map(data => new InteractionMarker(this, data));
+  }
+
   private renderState(): void {
     const restaurant = this.restaurant;
     const production = restaurant.production;
@@ -170,7 +194,7 @@ export class RestaurantScene extends Phaser.Scene {
       station.setSelected(station.data.id === this.selected?.stationId);
       station.showState(restaurant);
     }
-    for (const marker of this.markers) marker.update(marker.zone === this.selected, marker.zone === this.selected ? this.dwell.progress : 0);
+    for (const marker of this.markers) marker.update(marker.zone.id === this.selected?.id, marker.zone.id === this.selected?.id ? this.dwell.progress : 0);
     const customers = restaurant.customers;
     const live = new Set(customers.map(customer => customer.id));
     for (const [id, view] of this.customerViews) if (!live.has(id)) { view.destroy(); this.customerViews.delete(id); }
@@ -178,6 +202,14 @@ export class RestaurantScene extends Phaser.Scene {
       let view = this.customerViews.get(customer.id);
       if (!view) { view = new CustomerView(this, customer); this.customerViews.set(customer.id, view); }
       view.update(customer);
+    }
+    const employees = restaurant.staff.employees;
+    const staffIds = new Set<string>(employees.map(worker => worker.id));
+    for (const [id, view] of this.employeeViews) if (!staffIds.has(id)) { view.destroy(); this.employeeViews.delete(id); }
+    for (const worker of employees) {
+      let view = this.employeeViews.get(worker.id);
+      if (!view) { view = new EmployeeView(this, worker); this.employeeViews.set(worker.id, view); }
+      view.update(worker);
     }
     const inventory = production.inventory;
     setText(this.carriedElement, 'Ingredientes ' + inventory.ingredients + '/' + inventory.limits.ingredients +
@@ -193,7 +225,7 @@ export class RestaurantScene extends Phaser.Scene {
     const available = this.currentOffer();
     let hint: string;
     if (available && !available.command) hint = available.reason;
-    else if (available?.command) hint = available.label + ' · quédate quieto ' + INTERACTION.dwellMs / 1000 + ' s.';
+    else if (available?.command) hint = available.label + ' · quédate quieto ' + restaurant.playerActionMs / 1000 + ' s.';
     else hint = matchMedia('(pointer: coarse)').matches ? 'Arrastra para moverte; quédate quieto en los puntos de acción.' : 'WASD o flechas; quédate quieto en los puntos de acción.';
     setText(this.nameElement, this.selected?.name ?? 'Cocina · cobra · limpia');
     setText(this.hintElement, hint);

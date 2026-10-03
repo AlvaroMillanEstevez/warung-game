@@ -1,6 +1,6 @@
 # Warung Kita
 
-Prototipo de warung para navegador. Hito 3: **producción, autoservicio, ventas y limpieza**. Esta revisión incorpora feedback de carga y cámara centrada; queda pendiente probar las sensaciones de movimiento.
+Prototipo de gestión de un warung para navegador. **Hito 4: personal y primeras mejoras**, listo para revisión manual. Los hitos anteriores, incluidos el control táctil y la cámara centrada, están aprobados por el usuario.
 
 ## Ejecutar desde WSL
 
@@ -9,56 +9,67 @@ cd /home/koke/projects/warungGame
 npm run dev
 ```
 
-Abre http://localhost:5173/ en Windows. Dependencias instaladas; `npm ci` reinstala el lockfile. Node >=22.18, npm >=10. Phaser 4.2.1, TypeScript 7.0.2 y Vite 8.3.2, sin dependencias nuevas.
+Abre http://localhost:5173/ en Windows. Dependencias instaladas; `npm ci` reinstala el lockfile. Node >=22.18, npm >=10. Phaser 4.2.1, TypeScript estricto y Vite, sin dependencias nuevas.
 
-- `npm test`: reglas, navegación, arrastre y geometría del exterior con node:test.
-- `npm run typecheck`: TypeScript estricto.
+- `npm test`: reglas, empleados, compras, navegación y controles con node:test.
+- `npm run typecheck`: comprobación de tipos.
 - `npm run build`: compilación de producción.
 - `npm run preview`: versión compilada en http://localhost:4173/.
 
 Vite escucha en todas las interfaces, puerto fijo 5173. Un teléfono físico puede necesitar configuración LAN/WSL/firewall; el proyecto no cambia esa configuración.
 
-## Controles y cámara
+## Jugar
 
-WASD/flechas o arrastre relativo desde cualquier zona libre del lienzo. El contacto fija un origen en pantalla. Alejarse controla dirección y velocidad; volver a la zona muerta, soltar o cancelar detiene. Sin inercia ni joystick fijo. Segundo dedo ignorado. Foco y orientación cancelan el gesto anterior.
+WASD/flechas o arrastre relativo desde una zona libre del lienzo. El origen queda fijo en pantalla, sin inercia. Soltar, cancelar, perder foco o cambiar orientación cancela el movimiento. Cámara centrada directamente en el jugador, también junto a paredes; HUD fijo y exterior decorativo.
 
-Revisión del control: el cálculo ya usaba coordenadas de pantalla coherentes, sin acumulación ni dependencia de cámara. Se elimina el seguimiento con retraso de la cámara, se amplía recorrido de 58 a 76 px y zona muerta de 10 a 12 px, y se usa una curva progresiva de exponente 1,25. El ajuste necesita evaluación manual; las pruebas automáticas no confirman comodidad.
+Quédate quieto en un punto de acción. Cada ciclo mueve una unidad o cobra a un cliente, y comienza otro ciclo completo si hay trabajo. La intención de moverse cancela aunque choques con un mueble. Sin acción válida no acumula tiempo.
 
-La cámara centra el cuerpo del jugador incluso junto a paredes, con seguimiento directo y zoom uniforme. El suelo transitable y sus colisiones siguen iguales. El exterior decorativo se dimensiona según el viewport y zoom, con acera, calle y árboles geométricos. No es transitable. HUD y mensajes permanecen anclados a pantalla.
+Frigorífico → hornillo → Depositar → Caja. Capacidad inicial independiente 8/8/8; cuatro posiciones de cocina con relojes propios y stock ilimitado en el mostrador. Los clientes reciben su plato al pagar 10 monedas. Si la mesa asignada está sucia esperan junto a caja; limpiar la conserva y les permite caminar al asiento. Comen allí durante 6 s, ensucian y salen. Papelera elimina solo residuos.
 
-Quietud de **1,5 s** activa una acción. Cada ciclo atiende un cliente o mueve una unidad y vuelve a empezar sin salir si hay otra acción válida. Movimiento/invalidez cancelan; sin recursos no se acumula progreso. Pestaña oculta o sin foco pausa todos los relojes.
+Llegan cada 8 s, 50 % por tipo, hasta tres por fila y diez en total. Se atiende la cabeza elegible más antigua; las mesas asignadas no bloquean ventas para llevar. Las compras no aumentan la demanda.
 
-## Recorrido de prueba
+## Compras y personal
 
-1. Frigorífico: recoge de uno en uno hasta cuatro. Observa la pila de ingredientes y el indicador +1.
-2. Hornillo: permanece para cargar y recoger. Cuatro posiciones, 4 s cada una; cada transferencia tiene su propio ciclo.
-3. Deposita a la izquierda del mostrador: −1 por plato. Stock ilimitado; el jugador puede llevar a la vez 4 ingredientes, 4 platos y 4 residuos.
-4. Caja delante del mostrador: cobra sucesivamente aun llevando carga. Cada cliente consume una ración y paga 10 monedas una sola vez.
-5. Comer aquí: el cliente recibe su plato en caja, camina a una mesa limpia y come al sentarse. **Ya no hay recogida ni reparto del jugador.**
-6. Deja que ambas mesas queden sucias, sin limpiarlas todavía. Cobra a dos nuevos clientes para comer aquí: reservan mesas distintas y esperan con sus platos en dos puntos al lado de caja. Comprueba que se sigue vendiendo para llevar.
-7. Limpia una mesa desde su punto frontal, llevando ingredientes o platos. Recoges un residuo y solo su cliente abandona caja, camina al asiento y come. La reserva no se pierde.
-8. Repite limpiezas para observar de uno a cuatro residuos. En papelera desaparecen uno por ciclo y los alimentos se conservan.
-9. Mantén un arrastre constante mientras te acercas a paredes y esquinas. Comprueba el centrado y el exterior; suelta y cambia orientación para comprobar la parada.
-10. Reinicia con clientes esperando limpieza o comiendo: desaparecen platos, reservas, clientes, progreso y feedback.
+Abre **Mejoras** desde cualquier lugar. El juego queda en pausa y cancela tu gesto y permanencia. Cada opción muestra efecto, nivel, precio y disponibilidad. Cerrar reanuda sin tiempo acumulado; vuelve a pulsar una tecla o inicia otro arrastre para moverte.
 
-Los clientes llegan cada 8 s con intención fija (50 % por tipo), hasta tres por fila y diez en total. Se atiende la cabeza elegible más antigua. Mesas asignadas no bloquean ventas para llevar. Al terminar los 6 s de comida, el cliente ensucia, libera la mesa y sale.
+| Compra | Efecto | Monedas |
+| --- | --- | --- |
+| Cocinero | Un empleado, carga propia de 4 ingredientes y 4 platos | 100 |
+| Limpieza | Una persona, carga propia de 4 residuos | 80 |
+| Transporte | 8 → 12 → 16 por categoría del jugador | 60 / 120 |
+| Acciones del jugador | 1,5 → 1,2 → 0,9 s | 80 / 160 |
+| Hornillo | Nuevas raciones: 4 → 3 → 2 s | 100 / 200 |
+| Mesa 3 / Mesa 4 | Una plaza por compra en una posición fija | 80 / 140 |
 
-## Organización
+El cocinero recoge ingredientes por lotes ajustados a las posiciones disponibles. Prioriza recoger raciones listas, deposita al llenarse o cuando no quedan listas accesibles, aunque lleve menos de cuatro. Su objetivo de stock es 12: deja de iniciar nuevas cocciones, termina lo iniciado y reanuda al bajar el stock. No limita tus depósitos.
 
-- `src/config.ts`: equilibrio, controles, cámara y feedback.
-- `src/world/layout.ts`: huellas, puntos de acción, filas, asientos y esperas junto a caja.
-- `src/simulation/Restaurant.ts`: autoservicio, clientes, mesas, cobros y trazabilidad.
-- `src/simulation/Production.ts`: inventario simple, hornillos y stock.
-- `src/simulation/DwellInteraction.ts`: ciclos continuos.
-- `src/entities/Controls.ts` y `drag.ts`: eventos y vector relativo independiente de cámara.
-- `src/world/viewport.ts`, `camera.ts` y `room.ts`: geometría visible, seguimiento y exterior decorativo.
-- `src/entities/Player.ts` y `CustomerView.ts`: carga, feedback y platos de clientes.
-- `docs/GAME_DESIGN.md`, `ROADMAP.md` y `VERIFICATION.md`: reglas, alcance y evidencias.
+Limpieza prioriza mesas sucias reservadas por antigüedad del cliente que espera; después las demás por antigüedad de suciedad. Lleva residuos a papelera al llegar a cuatro o quedarse sin mesas que pueda atender. Sin tareas espera en un punto apartado.
 
-## Límites
+Ambos se desplazan, tardan 1,5 s por transferencia y tienen inventarios independientes. No cobran ni reparten. Reservan una posición/ración del hornillo o los residuos de una mesa; puedes seguir trabajando sobre otros recursos. La tarea mantiene su objetivo hasta completarse o invalidarse.
 
-Revisar docs/VERIFICATION.md. Móvil emulado no equivale a teléfono físico ni valida Safari/iOS. La sensación del arrastre sigue pendiente de prueba manual. Arte y equilibrio son provisionales; personajes pueden cruzarse.
+Las nuevas mesas aparecen con silla, colisión, asiento y limpieza al comprarlas. Si alguien ocupa el espacio, no cobra: cierra el panel, deja pasar al personaje o muévete y vuelve a intentarlo. Las rutas se recalculan sin mover instantáneamente a los actores.
 
-El delta activo máximo es 100 ms; por debajo de 10 FPS la simulación avanza más despacio. Vite conserva el aviso de tamaño del bundle de Phaser (aprox. 1,42 MB / 372 kB gzip).
+## Recorrido manual del Hito 4
 
-Sin empleados, mejoras, recetas nuevas, tutoriales o guardado. El futuro camarero limpiará mesas y recogerá residuos; el reparto queda fuera del diseño actual. Sin publicación, push ni servicios externos. Detener aquí el desarrollo para probar autoservicio y movimiento.
+1. **Inicio y panel:** reinicia. Comprueba saldo 0, carga 0/8 en cada categoría y dos mesas. Abre Mejoras: fondos insuficientes. Hazlo mientras te mueves o estás a mitad de una acción: todo debe detenerse. Cierra: no debe continuar el movimiento anterior ni completarse la acción cancelada.
+2. **Dinero:** produce y vende. Cada venta suma 10 monedas. Diez ventas permiten contratar al cocinero si no has gastado antes. No hay dinero gratis en la interfaz.
+3. **Cocinero (100):** contrátalo y permanece en Caja. Observa su recorrido frigorífico/hornillo/depósito y las ventas cuando repone stock. Sal de Caja para dejar subir el stock: debe parar en torno a 12 al terminar los platos iniciados. Vuelve a vender para que reanude.
+4. **Limpieza (80):** contrata tras ensuciar mesas. Observa desplazamiento, recogida y descarga, también con un solo residuo. Para probar prioridad, deja ambas sucias, cobra reservas y contrata después: atenderá primero la reserva más antigua y su cliente abandonará la espera con el plato.
+5. **Transporte (60 y 120):** compra cada nivel por separado. Llena ingredientes hasta 12 y luego 16; comprueba que platos y residuos tienen el mismo límite independiente. Las pilas dibujadas quedan acotadas a cuatro objetos; el HUD es exacto y conserva +1/−1. Los empleados siguen en 4.
+6. **Rapidez (80 y 160):** prueba recogida, depósito, caja y limpieza tras cada compra: 1,2 y 0,9 s por ciclo. El panel cancela cualquier ciclo del jugador al abrirse. Las acciones del personal y el consumo del cliente mantienen sus tiempos.
+7. **Hornillo (100 y 200):** inicia una cocción, abre Mejoras y compra. Esa ración conserva los 4 s originales; las nuevas duran 3 s. Repite con el segundo nivel, 2 s. Sirve tanto al cocinero como a ti.
+8. **Mesas (80 y 140):** compra cada una, a la izquierda y entre las mesas originales. Acércate y rodea sus huellas; comprueba su punto de limpieza. Espera clientes para observar reserva, llegada al asiento, suciedad y limpieza. Si hay un personaje en el lugar de colocación, comprueba rechazo sin gasto y reintenta al liberarse.
+9. **Cooperación:** con raciones listas, acércate al hornillo mientras el cocinero recoge; cada actor debe retirar una ración distinta. Con dos mesas sucias, deja que limpieza fije una y limpia la otra. Si ambos quieren la misma, espera sin progreso; moverte libera tu reserva. Ninguna unidad se duplica.
+10. **Reinicio:** prueba con empleados trabajando, clientes esperando, cocciones y mejoras activas. DEV restaura dos mesas, 8/8/8, 1,5 s, 4 s y saldo 0; desaparecen empleados, tareas, recursos, clientes, reservas y progreso. La operación también cierra el panel y limpia entradas.
+
+Los precios son hipótesis de balance. La demanda conservada puede hacer que muchas veces baste una sola mesa: ampliar capacidad no genera clientes nuevos.
+
+## Organización y límites
+
+Configuración en `src/config.ts`; distribución en `src/world/layout.ts`. `Restaurant` coordina compras, clientes, mesas, dinero y reservas; `Production` ejecuta transferencias sobre el `Inventory` del actor; `Staff` lleva tareas y rutas de las dos profesiones. `UpgradePanel` usa DOM sencillo; las vistas se dibujan con Phaser. Sin ECS ni framework nuevo.
+
+Diseño detallado en `docs/GAME_DESIGN.md`, alcance en `docs/ROADMAP.md` y resultados en `docs/VERIFICATION.md`. Las pruebas de navegador son de escritorio y móvil emulado; no certifican Safari/iOS ni comodidad en un dispositivo físico.
+
+No hay guardado: recargar empieza de cero. Arte y economía provisionales; personajes pueden cruzarse. Delta activo máximo 100 ms: por debajo de 10 FPS la simulación avanza más despacio. Se conserva el aviso de tamaño del bundle de Phaser.
+
+Detener tras el Hito 4 para revisión manual. Sin recetas nuevas, más hornillos, niveles del personal, cajero, tutoriales, arte final, publicidad, publicación ni push.
