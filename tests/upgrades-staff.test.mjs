@@ -5,7 +5,7 @@ import { DwellInteraction } from '../src/simulation/DwellInteraction.ts';
 import { STAFF, PLAYER, UPGRADES } from '../src/config.ts';
 import { EXTRA_TABLES, TABLE_POSITIONS, CLEANING_WAIT_POINTS, CUSTOMER_LAYOUT, QUEUE_POINTS, STAFF_POSITIONS } from '../src/world/layout.ts';
 import { canStand } from '../src/world/collision.ts';
-import { findPath } from '../src/world/navigation.ts';
+import { findCustomerPath as findPath, canStandCustomer } from '../src/world/customerNavigation.ts';
 
 // Funds and deliberately dirty tables are fixtures, never normal game controls.
 const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 2000; return r; };
@@ -51,8 +51,8 @@ test('Compras: fondos, débito único, niveles máximos, límites reales 8/12/16
   const before = r.money; assert.equal(r.purchase('transport', 2), false); assert.equal(r.money, before);
   buy(r, 'cook'); buy(r, 'cleaner');
   assert.equal(r.staff.employees.length, 2);
-  assert.equal(r.staff.get('cook').inventory.state.limits.ingredients, 4);
-  assert.equal(r.staff.get('cleaner').inventory.state.limits.waste, 4);
+  assert.equal(r.staff.get('cook').inventory.state.limits.ingredients, 16);
+  assert.equal(r.staff.get('cleaner').inventory.state.limits.waste, 16);
   for (const id of ['cook', 'cleaner']) assert.equal(r.purchase(id, 1), false);
   for (const id of ['actionSpeed', 'stoveSpeed', 'table-3', 'table-4']) {
     for (let level = 0; level < UPGRADES[id].prices.length; level++) buy(r, id);
@@ -73,13 +73,13 @@ test('Mejorar conserva cocción y permanencia iniciadas; siguientes ciclos usan 
   p.update(1); assert.equal(p.stove[2].status, 'ready'); assert.equal(p.stove[0].status, 'cooking');
   p.update(1000); assert.equal(p.stoveSummary.ready, 3);
   const d = new DwellInteraction(), target = { id: 'fridge', action: 'take' };
-  d.update(target, ['fridge'], false, 1000, r.playerActionMs);
+  d.update(target, ['fridge'], false, 1000, r.teamActionMs);
   buy(r, 'actionSpeed'); buy(r, 'actionSpeed');
-  assert.equal(d.update(target, ['fridge'], false, 499, r.playerActionMs), null);
-  assert.equal(d.update(target, ['fridge'], false, 1, r.playerActionMs), 'take');
-  assert.equal(d.update(target, ['fridge'], false, 899, r.playerActionMs), null);
-  assert.equal(d.update(target, ['fridge'], false, 1, r.playerActionMs), 'take');
-  assert.equal(STAFF.actionMs, 1500); assert.equal(r.options.eatingMs, 6000); assert.equal(r.options.speed, 90);
+  assert.equal(d.update(target, ['fridge'], false, 499, r.teamActionMs), null);
+  assert.equal(d.update(target, ['fridge'], false, 1, r.teamActionMs), 'take');
+  assert.equal(d.update(target, ['fridge'], false, 899, r.teamActionMs), null);
+  assert.equal(d.update(target, ['fridge'], false, 1, r.teamActionMs), 'take');
+  assert.equal(UPGRADES.actionSpeed.durationsMs[0], 1500); assert.equal(r.options.eatingMs, 6000); assert.equal(r.options.speed, 90);
 });
 
 test('Mesas compradas: huella, destinos, rutas y seguridad de colocación con actores presentes', () => {
@@ -98,7 +98,7 @@ test('Mesas compradas: huella, destinos, rutas y seguridad de colocación con ac
     let previous = from;
     for (const end of route) {
       const steps = Math.max(1, Math.ceil(Math.hypot(end.x - previous.x, end.y - previous.y)));
-      for (let i = 0; i <= steps; i++) assert.ok(canStand({
+      for (let i = 0; i <= steps; i++) assert.ok(canStandCustomer({
         x: previous.x + (end.x - previous.x) * i / steps, y: previous.y + (end.y - previous.y) * i / steps,
       }, r.obstacles));
       previous = end;
@@ -110,6 +110,36 @@ test('Mesas compradas: huella, destinos, rutas y seguridad de colocación con ac
     until(r, () => r.customer(customerId).phase === 'eating');
     assert.deepEqual(r.customer(customerId).position, TABLE_POSITIONS[id].seat);
   }
+});
+
+
+test('Comprar una mesa recalcula desde cada posición sin saltos, sin perder tareas ni volver atrás al salir', () => {
+  const r = make();
+  stock(r, 1);
+  const id = r.admitCustomer('takeaway');
+  until(r, () => r.customer(id)?.phase === 'queueing');
+  sale(r);
+  buy(r, 'cook'); buy(r, 'cleaner'); dirty(r, 'table-1');
+  until(r, () => r.customer(id)?.position.x === CUSTOMER_LAYOUT.exit.x &&
+    r.customer(id).position.y > 400 && r.staff.employees.some(w => w.route.length > 0));
+  const actors = [...r.customers, ...r.staff.employees].map(actor => ({
+    actor, position: { ...actor.position }, oldRoute: actor.route,
+    destination: actor.route.at(-1), task: actor.task ? structuredClone(actor.task) : null,
+  }));
+  const locks = [...r.activeReservations];
+  buy(r, 'table-3');
+  for (const { actor, position, oldRoute, destination, task } of actors) {
+    assert.deepEqual(actor.position, position);
+    if (destination) {
+      assert.notEqual(actor.route, oldRoute);
+      assert.deepEqual(actor.route.at(-1), destination);
+      assert.ok(actor.route.length);
+    }
+    if (task) assert.deepEqual(actor.task, task);
+  }
+  assert.deepEqual([...r.activeReservations], locks);
+  assert.ok(r.customer(id).route.every(p => p.y >= r.customer(id).position.y));
+  until(r, () => !r.customer(id));
 });
 
 test('Cocinero completa circuito físico, reserva una posición y detiene stock a 12; reanuda al vender', () => {
@@ -127,7 +157,7 @@ test('Cocinero completa circuito físico, reserva una posición y detiene stock 
     if (['ingredients', 'meals'].some(c => now[c] !== priorInventory[c])) {
       transfers.push(t);
       assert.ok(r.interactionZones.some(z => Math.hypot(z.position.x - worker.position.x, z.position.y - worker.position.y) < .1));
-      if (transfers.length > 1) assert.ok(t - transfers.at(-2) >= STAFF.actionMs);
+      if (transfers.length > 1) assert.ok(t - transfers.at(-2) >= UPGRADES.actionSpeed.durationsMs[0]);
     }
     priorInventory = now;
   }
@@ -192,7 +222,7 @@ test('Limpieza atiende primero reservas, luego antigüedad; vacía parcial y cap
   r.table('table-1').customerId = null; // isolate unreserved priority
   r.update(50); assert.equal(worker.task.command.tableId, 'table-2');
   r.staff.cancel('cleaner', r);
-  for (let i = 0; i < 4; i++) worker.inventory.change('waste', 1);
+  for (let i = 0; i < 8; i++) worker.inventory.change('waste', 1);
   r.update(50); assert.equal(worker.task.command.action, 'discard');
   until(r, () => r.tables.every(t => t.cleanliness === 'clean') && worker.inventory.state.waste === 0);
   until(r, () => !worker.task && Math.hypot(worker.position.x - STAFF_POSITIONS.cleaner.x, worker.position.y - STAFF_POSITIONS.cleaner.y) < .1);
@@ -238,9 +268,9 @@ test('Invalidación y ruta imposible liberan reservas; reinicio restaura todo el
   assert.equal(r.staff.employees.length + r.activeReservations.size + r.money + r.elapsedMs, 0);
   assert.equal(r.tables.length, 2); assert.equal(r.obstacles.length, 6);
   assert.deepEqual(r.production.inventory.limits, { ingredients: 8, meals: 8, waste: 8 });
-  assert.equal(r.playerActionMs, 1500); assert.equal(r.production.cookingMs, 4000);
+  assert.equal(r.teamActionMs, 1500); assert.equal(r.production.cookingMs, 4000);
   assert.equal(r.production.availablePortions, 0); assert.equal(r.production.stoveSummary.empty, 4);
   for (const id of Object.keys(UPGRADES)) assert.equal(r.upgradeLevel(id), 0);
   assert.equal(r.validate({ kind: 'clean', tableId: 'table-3' }), 'La mesa ya está limpia.');
-  assert.deepEqual(PLAYER.spawn, { x: 444, y: 518 });
+  assert.deepEqual(PLAYER.spawn, { x: 378, y: 565 });
 });

@@ -1,24 +1,34 @@
-export interface InventoryLimits { readonly ingredients: number; readonly meals: number; readonly waste: number }
-export type Category = keyof InventoryLimits;
+export type Category = 'ingredients' | 'meals' | 'waste';
+export type InventoryLimits = Readonly<Record<Category, number>>;
 export interface InventoryState extends InventoryLimits { readonly limits: InventoryLimits }
+export type ApplicableInventory = Readonly<Partial<InventoryLimits>>;
 
+// Only applicable categories exist; a cleaner has no food compartments.
 export class Inventory {
-  private counts = { ingredients: 0, meals: 0, waste: 0 };
-  private capacities: InventoryLimits;
-  constructor(limits: InventoryLimits) { this.capacities = Object.freeze({ ...limits }); }
-  get state(): InventoryState { return { ...this.counts, limits: this.capacities }; }
-  canAdd(category: Category): boolean { return this.counts[category] < this.capacities[category]; }
-  has(category: Category): boolean { return this.counts[category] > 0; }
+  private counts: Partial<Record<Category, number>>;
+  private capacities: ApplicableInventory;
+  constructor(limits: ApplicableInventory) {
+    this.capacities = Object.freeze({ ...limits });
+    this.counts = Object.fromEntries(Object.keys(limits).map(key => [key, 0]));
+  }
+  get state(): ApplicableInventory & { readonly limits: ApplicableInventory } { return { ...this.counts, limits: this.capacities }; }
+  count(category: Category): number { return this.counts[category] ?? 0; }
+  capacity(category: Category): number { return this.capacities[category] ?? 0; }
+  canAdd(category: Category): boolean { return this.count(category) < this.capacity(category); }
+  has(category: Category): boolean { return this.count(category) > 0; }
   change(category: Category, delta: 1 | -1): boolean {
     if (delta > 0 ? !this.canAdd(category) : !this.has(category)) return false;
-    this.counts[category] += delta;
+    this.counts[category] = this.count(category) + delta;
     return true;
   }
-  setLimits(limits: InventoryLimits): void {
-    if (Object.keys(this.counts).some(key => limits[key as Category] < this.counts[key as Category])) throw new Error('No se puede reducir una carga existente.');
+  setLimits(limits: ApplicableInventory): void {
+    if (Object.keys(this.counts).some(key => (limits[key as Category] ?? 0) < this.count(key as Category)))
+      throw new Error('No se puede reducir una carga existente.');
     this.capacities = Object.freeze({ ...limits });
+    this.counts = Object.fromEntries(Object.keys(limits).map(key => [key, this.count(key as Category)]));
   }
-  reset(limits: InventoryLimits = this.capacities): void {
-    this.counts = { ingredients: 0, meals: 0, waste: 0 }; this.capacities = Object.freeze({ ...limits });
+  reset(limits: ApplicableInventory = this.capacities): void {
+    this.capacities = Object.freeze({ ...limits });
+    this.counts = Object.fromEntries(Object.keys(limits).map(key => [key, 0]));
   }
 }

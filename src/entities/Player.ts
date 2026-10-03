@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { CargoView } from './CargoView';
 import { CARGO_FEEDBACK, COLORS as C, PLAYER } from '../config';
 import { moveWithCollisions } from '../world/collision';
 import type { Point, Rect } from '../world/layout';
@@ -10,7 +11,7 @@ export class Player {
   private readonly body: Phaser.GameObjects.Graphics;
   private readonly shadow: Phaser.GameObjects.Ellipse;
   private readonly direction: Phaser.GameObjects.Graphics;
-  private readonly cargo: Phaser.GameObjects.Graphics;
+  private readonly cargo: CargoView;
   private inventory: InventoryState | null = null;
   private readonly feedback: Phaser.GameObjects.Text;
   private feedbackRemainingMs = 0;
@@ -21,10 +22,10 @@ export class Player {
     this.shadow = scene.add.ellipse(this.position.x, this.position.y + 2, 36, 15, C.shadow, 0.18).setDepth(-1);
     this.direction = scene.add.graphics().setDepth(-0.5);
     this.body = scene.add.graphics();
-    this.cargo = scene.add.graphics();
+    this.cargo = new CargoView(scene);
     this.feedback = scene.add.text(28, -64, '', { fontFamily: 'Arial, sans-serif', fontSize: '10px',
       color: '#fff7e7', backgroundColor: '#315e50', padding: { x: 4, y: 2 } }).setVisible(false);
-    this.visual = scene.add.container(this.position.x, this.position.y, [this.body, this.cargo, this.feedback]);
+    this.visual = scene.add.container(this.position.x, this.position.y, [this.body, this.cargo.visual, this.feedback]);
     this.draw(0);
     this.sync();
   }
@@ -39,7 +40,7 @@ export class Player {
     this.feedback.setVisible(this.feedbackRemainingMs > 0);
     if (this.feedbackRemainingMs > 0) {
       const progress = 1 - this.feedbackRemainingMs / CARGO_FEEDBACK.durationMs;
-      this.feedback.setY(-64 - CARGO_FEEDBACK.rise * progress).setAlpha(1 - progress * 0.6);
+      this.feedback.setY(-Math.max(70, this.cargo.height + 28) - CARGO_FEEDBACK.rise * progress).setAlpha(1 - progress * 0.6);
     }
     const seconds = Math.min(deltaMs / 1000, PLAYER.maxFrameSeconds);
     const next = moveWithCollisions(this.position, movement.x * PLAYER.speed * seconds, movement.y * PLAYER.speed * seconds, obstacles);
@@ -60,44 +61,25 @@ export class Player {
     for (const category of ['ingredients', 'meals', 'waste'] as const) {
       const delta = after[category] - before[category];
       if (delta === 0) continue;
-      this.feedback.setText(labels[category] + (delta > 0 ? ' +1' : ' −1')).setPosition(28, -64).setAlpha(1).setVisible(true);
+      this.feedback.setText(labels[category] + (delta > 0 ? ' +1' : ' −1')).setPosition(this.cargo.visual.x, -Math.max(70, this.cargo.height + 34)).setAlpha(1).setVisible(true);
       this.feedbackRemainingMs = CARGO_FEEDBACK.durationMs;
       break; // A transfer changes exactly one carried category.
     }
   }
 
+  get cargoHeight(): number { return this.cargo.height; }
+  get cargoBounds(): Rect | null {
+    return this.cargo.height ? { x: this.position.x + this.cargo.visual.x - 24, y: this.position.y - 20 - this.cargo.height,
+      width: 48, height: this.cargo.height + 12 } : null;
+  }
+
   clearFeedback(): void { this.feedbackRemainingMs = 0; this.feedback.setVisible(false); }
 
   private drawCargo(): void {
-    const g = this.cargo;
-    g.clear();
-    const inventory = this.inventory;
-    if (!inventory || inventory.ingredients + inventory.meals + inventory.waste === 0) return;
-    // Keep every stack beside the body in all four directions, including facing away.
     const side = this.facing.x < -0.5 ? -1 : 1;
-    g.setPosition(side * 42, -16);
-    this.feedback.setX(side * 28).setOrigin(side > 0 ? 0 : 1, 0);
-    g.fillStyle(C.woodDark).fillRoundedRect(-22, 1, 44, 9, 3);
-    for (let i = 0; i < Math.min(inventory.ingredients, 4); i++) {
-      const y = 2 - i * 6;
-      g.fillStyle(C.woodLight).fillRoundedRect(-22, y - 6, 14, 7, 2);
-      g.lineStyle(1, C.woodDark).strokeRoundedRect(-22, y - 6, 14, 7, 2);
-      g.fillStyle(C.green).fillEllipse(-18, y - 7, 5, 5);
-      g.fillStyle(C.coral).fillCircle(-12, y - 5, 2);
-    }
-    if (inventory.meals > 0) {
-      for (let i = 0; i < Math.min(inventory.meals, 4); i++) {
-        g.fillStyle(C.cream).fillEllipse(0, 3 - i * 3, 21, 9);
-      }
-      g.fillStyle(C.gold).fillEllipse(0, 3 - Math.min(inventory.meals, 4) * 3, 13, 5);
-    }
-    for (let i = 0; i < Math.min(inventory.waste, 4); i++) {
-      const y = 3 - i * 6;
-      g.fillStyle(C.greenDark).fillRoundedRect(10, y - 6, 12, 9, 3);
-      g.lineStyle(1, C.greenLight).strokeRoundedRect(10, y - 6, 12, 9, 3);
-      g.fillStyle(C.cream).fillTriangle(12, y - 6, 16, y - 10, 19, y - 6);
-    }
-    this.visual.bringToTop(this.cargo);
+    this.cargo.update(this.inventory ?? {}, side);
+    this.feedback.setX(side * 44).setOrigin(.5, 1);
+    this.visual.bringToTop(this.cargo.visual);
     this.visual.bringToTop(this.feedback);
   }
 

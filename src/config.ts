@@ -5,14 +5,15 @@ export const PLAYER = {
   speed: 185,
   halfWidth: 10,
   halfHeight: 7,
-  spawn: { x: 444, y: 518 },
+  spawn: { x: 378, y: 565 },
   maxFrameSeconds: 0.1,
   collisionStep: 4,
 } as const;
 export const INTERACTION = { radius: 48, dwellMs: 1500, messageDuration: 3200 } as const;
 export const PRODUCTION = { cookingMs: 4000, stoveSlots: 4, inventory: { ingredients: 8, meals: 8, waste: 8 } } as const;
 export const CUSTOMERS = {
-  arrivalMs: 8000, dineInChance: 0.5, maxCustomers: 10, maxQueueLength: 3,
+  arrivalMs: 8000, dineInChance: 0.7, maxCustomers: 48,
+  queueLimits: { 'dine-in': 20, takeaway: 10 },
   speed: 90, eatingMs: 6000, price: 10,
 } as const;
 export const CONTROLS = { dragDeadZone: 12, dragMaxDistance: 76, responseExponent: 1.25 } as const;
@@ -33,8 +34,14 @@ export const COLORS = {
   skin: 0xd9996c, hair: 0x423326, highlight: 0x428b68,
 } as const;
 
+export const DEMAND = { spendingThreshold: 300, frequencyMultiplier: 1.5 } as const;
+export const COMMENTS = {
+  thresholdMinMs: 10000, thresholdMaxMs: 15000, checkIntervalMs: 1000,
+  participationChance: 0.65, durationMs: 2500, cooldownMs: 20000, maxVisible: 2,
+  phrases: ['Qué hambre…', '¿Falta mucho?', 'Hoy hay mucha cola.', 'Espero que merezca la pena.'],
+} as const;
 export const DEBUG = { customerMarkers: false } as const;
-export const STAFF = { actionMs: 1500, speed: 110, capacity: 4, cookStockTarget: 12 } as const;
+export const STAFF = { speed: 110, cookStockTarget: 12 } as const;
 export const UPGRADES = {
   cook: { prices: [100] },
   cleaner: { prices: [80] },

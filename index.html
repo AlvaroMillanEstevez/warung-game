@@ -4,36 +4,29 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#315e50" />
-    <meta name="description" content="Warung Kita: prepara nasi goreng en tu pequeño restaurante. Prototipo de cocina, autoservicio y limpieza." />
+    <meta name="description" content="Warung Kita: prepara nasi goreng y cuida tu pequeño restaurante." />
     <link rel="icon" href="data:," />
     <title>Warung Kita · Tu pequeño restaurante</title>
   </head>
   <body>
     <main class="app">
       <div id="game" tabindex="0" role="application" aria-label="Restaurante. Muévete con WASD, flechas o arrastrando. Quédate quieto junto a las estaciones para actuar."></div>
-      <div class="hud" aria-label="Estado del restaurante">
-        <header class="hud-heading">
-          <h1>warung kita<span>.</span></h1>
-          <div class="hud-actions"><button id="open-upgrades" data-ui type="button">Mejoras</button>
-          <button id="reset-test" data-ui type="button" title="Herramienta provisional: reiniciar clientes, mesas, pedidos, producción, dinero y posición"><span>DEV · provisional</span>Reiniciar prueba</button></div>
-        </header>
-        <div class="status-strip">
-          <div class="status-chip"><span>INVENTARIO</span><strong id="carried-status">Ingredientes 0/8 · Platos 0/8 · Residuos 0/8</strong></div>
-          <div class="status-chip"><span>HORNILLO</span><strong id="stove-status">Vacío</strong></div>
-          <div class="status-chip"><span>MOSTRADOR</span><strong id="counter-status">0 disponibles</strong></div>
-          <div class="status-chip"><span>CAJA</span><strong id="money-status">0 monedas</strong></div>
-        </div>
-        <p id="queue-status" class="queue-status">En fila · aquí 0 · llevar 0</p>
+      <div class="hud" aria-label="Restaurante">
+        <button id="money-display" data-ui type="button" aria-label="Dinero disponible"><span aria-hidden="true">●</span> <strong id="money-status">0 monedas</strong></button>
+        <button id="open-upgrades" data-ui type="button">Mejoras</button>
       </div>
       <dialog id="upgrades-panel" data-ui aria-labelledby="upgrades-title">
-        <header class="upgrades-heading"><div><h2 id="upgrades-title">Tu local, paso a paso</h2><p id="upgrade-money"></p></div><button id="close-upgrades" type="button" aria-label="Cerrar mejoras">Cerrar</button></header>
+        <header class="upgrades-heading"><div><h2 id="upgrades-title">Tu local, paso a paso</h2><p id="upgrade-money"></p></div><button id="close-upgrades" type="button">Cerrar</button></header>
         <p class="upgrades-intro">Mejoras · el restaurante está en pausa</p>
         <div id="upgrade-list"></div>
         <p id="upgrade-feedback" role="status" aria-live="polite"></p>
       </dialog>
+      <dialog id="debug-panel" data-ui aria-labelledby="debug-title">
+        <header class="upgrades-heading"><h2 id="debug-title">Pruebas de desarrollo</h2><button id="close-debug" type="button">Cerrar</button></header>
+        <pre id="debug-state"></pre>
+        <button id="reset-test" type="button">Reiniciar prueba</button>
+      </dialog>
       <div id="pause-notice" class="pause-notice" hidden>En pausa · vuelve al local para continuar</div>
-      <div class="context" aria-live="polite" aria-atomic="true"><strong id="station-name">Cocina · cobra · limpia</strong><p id="interaction-hint">Acércate al frigorífico y quédate quieto.</p></div>
-      <p id="interaction-message" class="message" role="status" aria-live="polite" aria-atomic="true" hidden></p>
       <div id="drag-indicator" aria-hidden="true" hidden><span id="drag-knob"></span></div>
     </main>
     <script type="module" src="/src/main.ts"></script>

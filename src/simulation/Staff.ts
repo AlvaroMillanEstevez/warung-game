@@ -11,18 +11,21 @@ export interface Employee {
   readonly inventory: Inventory;
   position: Point;
   route: Point[];
-  task: { command: RestaurantAction; destination: Point; label: string; elapsedMs: number } | null;
+  task: { command: RestaurantAction; destination: Point; label: string; elapsedMs: number; durationMs: number | null } | null;
   retryMs: number;
 }
 export class Staff {
   private readonly workers = new Map<StaffRole, Employee>();
   get employees(): readonly Employee[] { return [...this.workers.values()]; }
   get(id: string): Employee | undefined { return this.workers.get(id as StaffRole); }
-  hire(id: StaffRole): void {
+  hire(id: StaffRole, capacity: number): void {
     if (this.workers.has(id)) return;
-    const limit = STAFF.capacity;
-    this.workers.set(id, { id, inventory: new Inventory({ ingredients: limit, meals: limit, waste: limit }),
+    this.workers.set(id, { id, inventory: new Inventory(id === 'cook' ? { ingredients: capacity, meals: capacity } : { waste: capacity }),
       position: { ...STAFF_POSITIONS[id] }, route: [], task: null, retryMs: 0 });
+  }
+  upgradeCapacity(capacity: number): void {
+    for (const worker of this.workers.values()) worker.inventory.setLimits(worker.id === 'cook' ?
+      { ingredients: capacity, meals: capacity } : { waste: capacity });
   }
   reset(): void { this.workers.clear(); }
   cancel(id: string, restaurant: Restaurant): void {
@@ -37,9 +40,9 @@ export class Staff {
       if (!worker.task && worker.retryMs === 0) {
         const next = worker.id === 'cook' ? this.planCook(worker, restaurant) : this.planCleaner(worker, restaurant);
         if (next?.offer.command) {
-          const route = findPath(worker.position, next.destination, restaurant.obstacles);
+          const route = findPath(worker.position, next.destination, restaurant.routingObstacles);
           if (route && restaurant.beginAction(next.offer.command, worker.id)) {
-            worker.task = { command: next.offer.command, destination: next.destination, label: next.offer.label, elapsedMs: 0 };
+            worker.task = { command: next.offer.command, destination: next.destination, label: next.offer.label, elapsedMs: 0, durationMs: null };
             worker.route = route;
           } else {
             restaurant.cancelAction(worker.id); worker.retryMs = 500;
@@ -48,13 +51,14 @@ export class Staff {
           const wait = worker.id === 'cook' && restaurant.production.stoveSummary.cooking > 0 ?
             restaurant.interactionZones.find(z => z.id === 'stove')!.position : STAFF_POSITIONS[worker.id];
           if (Math.hypot(wait.x - worker.position.x, wait.y - worker.position.y) > 0.1)
-            worker.route = findPath(worker.position, wait, restaurant.obstacles) ?? [];
+            worker.route = findPath(worker.position, wait, restaurant.routingObstacles) ?? [];
         }
       }
       if (worker.route.length > 0) { this.walk(worker, deltaMs); continue; }
       if (!worker.task) continue;
+      worker.task.durationMs ??= restaurant.teamActionMs;
       worker.task.elapsedMs += deltaMs;
-      if (worker.task.elapsedMs + 0.000001 < STAFF.actionMs) continue;
+      if (worker.task.elapsedMs + 0.000001 < worker.task.durationMs) continue;
       // Revalidate position and the exact reserved object before the atomic transfer.
       if (Math.hypot(worker.position.x - worker.task.destination.x, worker.position.y - worker.task.destination.y) < 0.1)
         restaurant.perform(worker.task.command, worker.id);
@@ -62,7 +66,8 @@ export class Staff {
     }
   }
   private planCook(worker: Employee, r: Restaurant): { offer: Offer; destination: Point } | null {
-    const inventory = worker.inventory.state;
+    const inventory = { ingredients: worker.inventory.count('ingredients'), meals: worker.inventory.count('meals'), waste: worker.inventory.count('waste'),
+      limits: { ingredients: worker.inventory.capacity('ingredients'), meals: worker.inventory.capacity('meals'), waste: worker.inventory.capacity('waste') } };
     const select = (id: string) => {
       const zone = r.interactionZones.find(z => z.id === id)!;
       return { offer: r.offer(zone, worker.id), destination: zone.position };
@@ -71,13 +76,13 @@ export class Staff {
     const ready = slots.findIndex((s, i) => s.status === 'ready' && r.resourceAvailable('slot:' + i, worker.id));
     if (inventory.meals === inventory.limits.meals) return select('deposit');
     if (ready >= 0 && worker.inventory.canAdd('meals')) return select('stove');
-    if (inventory.meals > 0) return select('deposit'); // Partial batches never wait for four.
+    if (inventory.meals > 0) return select('deposit'); // Deposit partial batches without waiting for full capacity.
     if (r.production.availablePortions >= STAFF.cookStockTarget) return null;
     const empty = slots.filter((s, i) => s.status === 'empty' && r.resourceAvailable('slot:' + i, worker.id)).length;
     const inFlight = slots.filter(s => s.status !== 'empty').length;
     const needed = Math.max(0, STAFF.cookStockTarget - r.production.availablePortions - inFlight);
     if (empty === 0 || needed === 0) return null;
-    const batch = Math.min(inventory.limits.ingredients, empty, needed);
+    const batch = Math.min(inventory.limits.ingredients, needed);
     const fridge = r.interactionZones.find(z => z.id === 'fridge')!.position;
     const atFridge = Math.hypot(worker.position.x - fridge.x, worker.position.y - fridge.y) < 0.1;
     if (inventory.ingredients === 0 || (atFridge && inventory.ingredients < batch)) return select('fridge');
@@ -92,7 +97,8 @@ export class Staff {
       return Number(b.customerId !== null) - Number(a.customerId !== null) ||
         (paidAt(a.customerId) - paidAt(b.customerId) || (a.dirtySince! - b.dirtySince!)) || a.id.localeCompare(b.id);
     });
-    const inventory = worker.inventory.state;
+    const inventory = { ingredients: worker.inventory.count('ingredients'), meals: worker.inventory.count('meals'), waste: worker.inventory.count('waste'),
+      limits: { ingredients: worker.inventory.capacity('ingredients'), meals: worker.inventory.capacity('meals'), waste: worker.inventory.capacity('waste') } };
     const id = inventory.waste === inventory.limits.waste || (dirty.length === 0 && inventory.waste > 0) ?
       'bin' : dirty[0]?.id;
     if (!id) return null;

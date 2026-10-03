@@ -1,78 +1,73 @@
-# Verificación del Hito 4: personal y primeras mejoras
+# Verificación de la revisión de experiencia y balance
 
-Fecha: 2026-10-03. Los hitos 1–3, incluido el control táctil y la cámara centrada, están aprobados manualmente por el usuario. Esta entrega queda pendiente de su revisión jugable.
+Fecha: 2026-10-03. Los hitos 1–4 están aprobados manualmente. Esta revisión queda pendiente de la revisión jugable del usuario.
 
 ## Entorno y comprobaciones
 
 - WSL Ubuntu 22.04, Node 24.18.0, npm 11.16.0.
 - Phaser 4.2.1, TypeScript estricto 7.0.2 y Vite 8.3.2. Sin dependencias nuevas ni cambios del lockfile.
-- `npm test`: 33 pruebas correctas con node:test.
-- `npm run typecheck`: correcto; también se ejecuta dentro del build.
-- `npm run build`: correcto. Se conserva el aviso del bundle de Phaser superior a 500 kB (1.432,61 kB / 375,64 kB gzip).
+- `npm test`: **43 pruebas correctas**, con node:test.
+- `npm run typecheck`: correcto, ejecutado también dentro del build.
+- `npm run build`: correcto; JavaScript 1.437,94 kB / 377,41 kB gzip. Sigue el aviso del bundle de Phaser superior a 500 kB.
 - `git diff --check`: correcto.
-- Sin publicación, push o persistencia.
+- Sin publicación, push ni persistencia.
 
 ## Reglas cubiertas
 
-Se mantienen las pruebas de autoservicio, cobro único, filas sin adelantamientos, limpieza independiente de reservas, movimiento y cámara. Se adaptan los límites iniciales a 8/8/8 y los estados de cocción a su duración capturada.
+Se conservan pruebas de producción, permanencia continua, controles, cámara, transferencias atómicas, autoservicio, asignación/limpieza independientes y cooperación. La revisión comprueba:
 
-Las pruebas nuevas cubren:
+1. Capacidades globales 8/12/16 para empleados presentes y posteriores, sin añadir categorías inaplicables.
+2. Lotes de ingredientes según capacidad y necesidad; depósitos y eliminación de residuos parciales, objetivo de stock 12.
+3. Duración capturada al empezar a actuar; una mejora no completa tareas iniciadas ni cambia desplazamiento, consumo o cocción.
+4. Gasto acumulado por compras correctas, cruce 240 → 320, activación única, exclusión de fallos/ingresos/saldo y ausencia de llegada inmediata.
+5. Intención 70/30 decidida una vez; omisión sin desvío ni deuda cuando se llena la fila elegida o el límite global.
+6. Treinta plazas distintas, separadas y accesibles; recorridos sobre huellas actuales/futuras, tramo exterior solo para clientes.
+7. Pedidos para llevar atendibles con todas las mesas asignadas y ambas filas largas.
+8. Seguridad de compra de mesas, acceso a todos los destinos, recálculo desde posiciones actuales sin teletransporte ni pérdida de tareas/reservas. Un cliente que ya sale por su carril no retrocede al recalcular.
+9. Umbral individual de comentarios, participación, comprobación por intervalos, duración, máximo dos, visibilidad, enfriamiento y retirada al cobrar.
+10. Reinicio de gasto, demanda, comentarios, capacidades, tiempos, empleados, reservas, producción y mesas.
 
-1. Saldo insuficiente, compra válida, descuento único con nivel esperado, máximos y ausencia de saldo negativo.
-2. Capacidad real de las tres categorías tras 12 y 16; empleados permanecen en 4.
-3. Cocciones activas conservan 4/3 s al mejorar; las nuevas usan 3/2 s. Permanencia iniciada conserva duración, siguiente ciclo usa la mejora.
-4. Mesas ausentes antes de comprar, colocación rechazada sobre el jugador sin cobrar, integración de cuatro reservas y asientos.
-5. Rutas entre todos los puntos de acción, filas, esperas, asientos, entradas y posiciones del personal con cuatro mesas. Se muestrean segmentos para comprobar huellas.
-6. Circuito completo del cocinero con inventario independiente, transferencias solo en destinos y distancia por paso limitada a su velocidad.
-7. Depósito de lotes parciales, stock objetivo 12, espera estable, reanudación al vender y depósitos manuales sobre el objetivo.
-8. Si el stock llega al objetivo durante un viaje a cargar, cancela la carga y libera la posición; conserva ingredientes para demanda posterior.
-9. Limpieza de reservas por antigüedad del pago, cliente que abandona su espera y come al llegar, conservación de asignación.
-10. Prioridad de reservas sobre mesas sin cliente; antigüedad de suciedad para las restantes; vaciado parcial y capacidad completa.
-11. Jugador y empleados compiten por una ración, posición o residuos de mesa: no duplican, pueden trabajar sobre otro recurso y liberan reservas.
-12. Invalidación, ruta imposible y reinicio no dejan reservas huérfanas; reinicio restaura límites, tiempos, personal y dos mesas.
-
-El dinero y ciertos estados específicos se preparan en pruebas como fixtures. No existe botón de dinero gratis ni cambio del saldo inicial normal.
+Dinero y estados concretos se preparan como fixtures para aislar casos. El juego normal conserva saldo inicial cero y precio de venta 10; no hay control de dinero gratis.
 
 ## Navegador de escritorio
 
-Edge/Chromium mediante Playwright instalado en el entorno, en modo headless; no se añadió al proyecto. Sin errores de consola ni excepciones durante las pruebas correctas.
+Edge/Chromium headless mediante Playwright ya instalado en el entorno; no se añadió al proyecto. Servidor Vite local. Sin errores de consola ni excepciones en las ejecuciones correctas.
 
-- Apertura del panel con saldo cero: botones deshabilitados y fondos insuficientes.
-- Abrir mientras se mantiene una tecla cancela movimiento/permanencia; reloj y posición quedan congelados.
-- Doble clic en transporte compra un solo nivel y descuenta 60 una vez.
-- Cierre sin desplazamiento residual ni tiempo acumulado; compra de ambos niveles y contrataciones desde el panel.
-- Recorrido con teclado hasta Caja. Con reloj real, el cocinero completó frigorífico → hornillo → depósito y el jugador cobró al menos dos ventas estando quieto.
-- Con ambos empleados y cuatro mesas se ejecutaron otros 600 s activos mediante pasos de 50 ms sobre la escena: 49 ventas, 21 limpiezas y 48 depósitos. Los empleados respetaron velocidad y muebles.
-- En esa simulación de demanda normal bastó habitualmente la mesa 1. En el escenario adicional, los cuatro clientes alcanzaron físicamente sus respectivos asientos y quedaron comiendo en las mesas 1, 2, 3 y 4.
-- Cooperación manual en el hornillo mediante permanencia de la escena: el cocinero fijó la posición 0 y el jugador recogió la ración de la posición 1.
-- Reinicio con panel abierto: cerró diálogo, eliminó vistas del personal y mesas adicionales, liberó reservas y restauró saldo, carga y tiempos.
+- Movimiento con teclado hasta frigorífico y caja; recogida continua y feedback de carga.
+- HUD reducido a dos botones, DEV oculto, apertura mediante F2 y reinicio completo.
+- Compras desde el panel: mejoras globales, una notificación al superar el umbral, capacidad 16 para cada categoría aplicable.
+- Panel abierto congela reloj, clientes y personal; cancela entradas y progreso del jugador.
+- Simulación de 600 s activos con personal, cuatro mesas y demanda aumentada, avanzando la escena en pasos de 50 ms. El circuito mantiene ventas y limpieza sin atravesar muebles.
+- Escenario preparado con cuatro clientes comiendo, filas de 20/10 y treinta posiciones distintas. Clientes recorren sus rutas hasta los destinos.
+- Inspección de torres 10/7/5 y máximos: jugador 16/16/16, cocinero 16/16, limpieza 16. Instrumentación de llamadas Graphics confirma el número de piezas; una actualización sin cambios no redibuja. Profundidad por pies.
+- Capturas revisadas de panel, distribución, filas exteriores y cargas máximas.
 
-La prueba prolongada avanzó la simulación de manera controlada; no se presenta como diez minutos de rendimiento sostenido a tiempo real. Las pruebas de cooperación fijaron posiciones iniciales y recursos para reproducir la competencia; después usaron las acciones de la escena.
+La simulación acelerada no equivale a diez minutos de rendimiento sostenido a tiempo real. El escenario de máxima ocupación prepara inventarios, pedidos y tiempos específicos. La captura de conjunto usa cámara de prueba alejada para abarcar las treinta plazas; la cámara normal sigue centrada en el jugador.
 
 ## Móvil emulado
 
-Contexto con eventos táctiles a 390 × 844 y revisión de interfaz a 320 × 568, 844 × 390 y 568 × 320.
+Contexto con eventos táctiles a 390 × 844; revisión adicional en 320 × 568, 844 × 390 y 568 × 320.
 
-- Abrir con un contacto capturado cancela puntero, vector y progreso; reloj/posición congelados. La apertura de este caso se disparó desde DOM para mantener el contacto.
-- Compras reales mediante taps para todas las opciones; el panel no mueve al jugador.
-- Tras cerrar, un arrastre nuevo vuelve a desplazarlo; el anterior no se recupera.
-- Diálogo contenido en pantalla, scroll interior, última compra y cierre accesibles, sin desbordamiento horizontal; botón Mejoras de al menos 44 px.
-- Cooperación de limpieza sobre dos mesas sucias preparadas: el empleado reservó mesa 1; el jugador limpió mesa 2 mediante su permanencia y recibió un residuo. El empleado terminó la otra y descargó su residuo parcial en papelera. Ambas limpias, sin reservas huérfanas.
-- Reinicio táctil correcto, sin errores de consola.
+- Arrastre relativo, cancelación de contacto capturado al abrir panel y ausencia de movimiento residual. En ese caso se abre por DOM para mantener el contacto durante la comprobación.
+- Compras mediante taps; personal contratado después de transporte hereda capacidad 16.
+- HUD con dinero y Mejoras dentro de pantalla, objetivos de al menos 44 px, panel con scroll interior sin desbordamiento horizontal y última compra/cierre accesibles.
+- Cargas máximas visibles al lado del cuerpo en vertical y horizontal.
+- Dos comentarios visibles como máximo; desaparecen al mover la cámara fuera de sus clientes. Se prepara participación/espera para reproducir el escenario.
+- Pérdida de foco congela relojes; al recuperar foco se descarta un delta simulado de diez minutos sin nuevas llegadas.
+- Mantener dinero abre DEV; reinicio táctil elimina clientes, comentarios, personal, gasto, demanda aumentada y mesas compradas.
+- Sin errores de consola ni excepciones.
 
-Las capturas finales se inspeccionaron en escritorio y móvil. Con carga 16/16/16, los contadores del HUD fueron exactos y la lista de comandos gráficos de las pilas tuvo el mismo tamaño que con carga 4/4/4 (2016 entradas), confirmando que no crece con los nuevos límites. También se verificó que el reinicio repone el temporizador del mensaje y deja progreso cero. Los marcadores de interacción siguen visibles y los círculos técnicos de filas/espera están ocultos por defecto.
+La emulación no demuestra comodidad en un teléfono físico. No se ha certificado Safari/iOS, Firefox, dispositivos lentos ni sesiones de varias horas.
 
-## Evidencia y límites
+## Evidencia y pendientes
 
 Evidencia local en `artifacts/`, excluida de Git:
 
-- `hito4-desktop.cjs` y `hito4-desktop-results.json`.
-- `hito4-mobile.cjs` y `hito4-mobile-results.json`.
-- `hito4-visual.cjs`, capturas `hito4-*.png` y resultados de revisión visual.
-- Los archivos `selfservice-*`, `revision-*` y `hito3-*` corresponden a hitos anteriores.
+- `experience-desktop.cjs` y `experience-desktop-results.json`.
+- `experience-mobile.cjs` y `experience-mobile-results.json`.
+- Capturas `experience-*.png` de interfaz, cargas, comentarios, mesas y filas.
+- Los archivos `hito4-*`, `selfservice-*`, `revision-*` y `hito3-*` documentan entregas anteriores.
 
-Pendientes: revisión manual del Hito 4, balance económico y sensaciones del panel en teléfono físico. No se ha certificado Safari/iOS, Firefox, dispositivos lentos ni sesiones de juego de varias horas. La emulación no demuestra comodidad táctil. Los controles previos sí cuentan con aprobación manual del usuario.
+Pendientes: revisión manual del recorrido en README, balance económico y sensaciones táctiles en dispositivo físico. Valores provisionales: demanda 70/30, intervalo 8 → 5,33 s al gastar 300, filas 20/10 y límite global 48. Se conserva el límite de delta activo de 100 ms y la ausencia de progreso offline.
 
-Se conserva el límite de delta de 100 ms, sin avance offline. Personajes pueden cruzarse. No hay persistencia: recargar reinicia. No se aumentó la demanda para justificar mesas nuevas.
-
-El recorrido de cada compra y de cooperación está en README.md. Detener el desarrollo tras este hito.
+**Detener el desarrollo tras esta revisión**, antes de ampliar el siguiente hito. El recorrido manual de demanda y mejoras globales está en [README.md](../README.md).

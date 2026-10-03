@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS as C, DEBUG, EXTERIOR, ROOM, WORLD } from '../config';
-import { CLEANING_WAIT_POINTS, QUEUE_POINTS } from './layout';
+import { CLEANING_WAIT_POINTS, CUSTOMER_EXTERIOR, QUEUE_POINTS } from './layout';
 import type { Rect } from './layout';
 
 export function drawRoom(scene: Phaser.Scene): void {
@@ -30,21 +30,22 @@ export function drawRoom(scene: Phaser.Scene): void {
   g.fillStyle(C.woodLight).fillRect(46, 54, 788, 10);
   g.fillStyle(C.wallShade).fillRect(47, 65, 17, 535).fillRect(816, 65, 17, 535);
   g.fillStyle(C.cream).fillRect(47, 65, 6, 535).fillRect(827, 65, 6, 535);
-  g.fillStyle(C.woodLight).fillRect(46, 600, 330, 9).fillRect(505, 600, 329, 9);
+  g.fillStyle(C.woodLight).fillRect(46, 600, 330, 9).fillRect(505, 600, 110, 9);
   g.fillStyle(C.wood).fillRect(380, 600, 122, 9);
+  g.fillStyle(C.tile).fillRect(615, 598, 201, 14);
   g.lineStyle(1, C.woodDark).lineBetween(384, 605, 498, 605);
   // Welcome mat and small floor route marks.
-  g.fillStyle(C.green, 0.84).fillRoundedRect(390, 556, 100, 39, 5);
-  g.lineStyle(1, C.gold, 0.65).strokeRoundedRect(396, 562, 88, 27, 3);
-  scene.add.text(440, 575, 'SELAMAT DATANG', { fontFamily: 'Arial, sans-serif', fontSize: '8px', color: '#fff7e7', letterSpacing: 1 }).setOrigin(0.5).setDepth(-90);
+  g.fillStyle(C.green, 0.84).fillRoundedRect(343, 556, 70, 39, 5);
+  g.lineStyle(1, C.gold, 0.65).strokeRoundedRect(349, 562, 58, 27, 3);
+  scene.add.text(378, 575, 'SELAMAT DATANG', { fontFamily: 'Arial, sans-serif', fontSize: '8px', color: '#fff7e7', letterSpacing: 1 }).setOrigin(0.5).setDepth(-90);
   // Explicit waiting positions are visual guides, never character collision bodies.
   for (const intent of ['dine-in', 'takeaway'] as const) {
     const points = QUEUE_POINTS[intent];
     if (DEBUG.customerMarkers) for (const point of points) g.lineStyle(1, intent === 'takeaway' ? C.coral : C.green, 0.45).strokeEllipse(point.x, point.y, 27, 13);
-    const middle = points[intent === 'dine-in' ? 2 : 1]!;
-    scene.add.text(middle.x, middle.y + 17, intent === 'takeaway' ? 'FILA · LLEVAR' : 'FILA · COMER AQUÍ', {
+    const middle = points[0]!;
+    scene.add.text(middle.x + (intent === 'takeaway' ? 35 : -35), middle.y - 5, intent === 'takeaway' ? 'PARA\nLLEVAR' : 'COMER\nAQUÍ', {
       fontFamily: 'Arial, sans-serif', fontSize: '10px', color: intent === 'takeaway' ? '#995336' : '#315e50',
-    }).setOrigin(0.5, 0).setDepth(-90);
+    }).setOrigin(intent === 'takeaway' ? 0 : 1, 0).setDepth(-90);
   }
   if (DEBUG.customerMarkers) for (const point of Object.values(CLEANING_WAIT_POINTS)) {
     g.lineStyle(1, C.coral, 0.65).strokeEllipse(point.x, point.y, 26, 13);
@@ -70,17 +71,21 @@ export function drawRoom(scene: Phaser.Scene): void {
 export function drawExterior(g: Phaser.GameObjects.Graphics, bounds: Rect): void {
   g.clear().fillStyle(0xa9b981).fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
   // Decorative only: ROOM remains the sole movement boundary.
-  g.fillStyle(0xbdbca9).fillRect(bounds.x, 666, bounds.width, 134);
-  g.fillStyle(0x777f77).fillRect(bounds.x, 684, bounds.width, 98);
+  g.fillStyle(0xbdbca9).fillRect(bounds.x, 1540, bounds.width, 134);
+  g.fillStyle(0x777f77).fillRect(bounds.x, 1558, bounds.width, 98);
   for (let x = Math.floor(bounds.x / 90) * 90; x < bounds.x + bounds.width; x += 90) {
-    g.fillStyle(C.cream, 0.6).fillRect(x, 730, 42, 4);
+    g.fillStyle(C.cream, 0.6).fillRect(x, 1604, 42, 4);
   }
   g.fillStyle(0xd5d0b9).fillRoundedRect(12, 24, 856, 626, 12);
   g.lineStyle(2, 0xb7baa1).strokeRoundedRect(20, 32, 840, 610, 10);
+  // A pedestrian forecourt carries the two queues and a separate exit lane.
+  g.fillStyle(C.tile).fillRect(CUSTOMER_EXTERIOR.x - 8, 600, CUSTOMER_EXTERIOR.width + 16, CUSTOMER_EXTERIOR.height - 20);
+  g.lineStyle(2, C.greenLight, .4).lineBetween(615, 604, 615, 1495).lineBetween(806, 604, 806, 1495);
+  for (let y = 620; y < 1500; y += 52) g.lineStyle(1, C.grout, .5).lineBetween(620, y, 802, y);
   const spacing = EXTERIOR.treeSpacing;
   for (let y = Math.floor(bounds.y / spacing) * spacing; y < bounds.y + bounds.height; y += spacing) {
     for (let x = Math.floor(bounds.x / spacing) * spacing; x < bounds.x + bounds.width; x += spacing) {
-      if ((x > -60 && x < 950 && y > -50 && y < 850) || (y > 620 && y < 850)) continue;
+      if ((x > -60 && x < 950 && y > -50 && y < 850) || (y > 1500 && y < 1720) || (x > 560 && x < 866 && y > 560 && y < 1550)) continue;
       g.fillStyle(C.shadow, 0.12).fillEllipse(x + 9, y + 15, 57, 26);
       g.fillStyle(C.woodDark).fillRect(x - 4, y - 9, 8, 27);
       g.fillStyle(C.green).fillCircle(x - 13, y - 14, 22).fillCircle(x + 13, y - 13, 21);

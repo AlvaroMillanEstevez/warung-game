@@ -13,15 +13,16 @@ export class CustomerView {
     this.shadow = scene.add.ellipse(0, 0, 28, 12, C.shadow, 0.16).setDepth(-1);
     this.body = scene.add.graphics();
     this.label = scene.add.text(0, -53, '', {
-      fontFamily: 'Arial, sans-serif', fontSize: '9px', color: '#fff7e7',
-      backgroundColor: customer.intent === 'takeaway' ? '#995336' : '#315e50',
+      fontFamily: 'Arial, sans-serif', fontSize: '10px', color: '#315e50',
+      backgroundColor: '#fff7e7', wordWrap: { width: 125 },
       padding: { x: 4, y: 3 }, align: 'center',
     }).setOrigin(0.5, 1);
     this.visual = scene.add.container(0, 0, [this.body, this.label]);
     this.update(customer);
   }
 
-  update(customer: Readonly<Customer>): void {
+  update(customer: Readonly<Customer>, comment: string | null = null): void {
+    this.label.setText(comment ?? '').setVisible(comment !== null);
     const { x, y } = customer.position;
     this.visual.setPosition(x, y).setDepth(y);
     this.shadow.setPosition(x, y + 2);
@@ -44,9 +45,7 @@ export class CustomerView {
       g.fillStyle(C.cream).fillEllipse(16, -15, 8, 5);
       g.fillStyle(C.gold).fillCircle(16, -15, 2);
     }
-    const status = customer.phase === 'waiting-cleaning' || customer.phase === 'walking-to-cleaning-wait' ? '\nEspera limpieza' :
-      customer.phase === 'eating' ? '\nComiendo' : '';
-    this.label.setText((customer.intent === 'takeaway' ? 'LLEVAR\n#' : 'AQUÍ #') + customer.number + status);
+
   }
 
   destroy(): void { this.visual.destroy(); this.shadow.destroy(); }

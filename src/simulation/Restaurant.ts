@@ -1,12 +1,14 @@
-import { CUSTOMERS, PLAYER, STAFF, UPGRADES } from '../config.ts';
-import { CLEANING_WAIT_POINTS, CUSTOMER_LAYOUT, EXTRA_TABLES, INTERACTION_ZONES, QUEUE_POINTS, STAFF_POSITIONS, STATIONS, TABLE_POSITIONS, tableZone } from '../world/layout.ts';
+import { CUSTOMERS, DEMAND, PLAYER, STAFF, UPGRADES } from '../config.ts';
+import { CLEANING_WAIT_POINTS, CUSTOMER_ENTRIES, CUSTOMER_LAYOUT, EXTRA_TABLES, INTERACTION_ZONES, QUEUE_POINTS, STAFF_POSITIONS, STATIONS, TABLE_POSITIONS, tableZone } from '../world/layout.ts';
 import type { InteractionZone, Point, Rect } from '../world/layout.ts';
-import { findPath } from '../world/navigation.ts';
+import { canStandCustomer, findCustomerPath } from '../world/customerNavigation.ts';
+import { CustomerComments } from './CustomerComments.ts';
 import { Production } from './Production.ts';
 import { Staff } from './Staff.ts';
 import type { UpgradeId } from '../config.ts';
 import type { Inventory } from './Inventory.ts';
 import { canStand } from '../world/collision.ts';
+import { findPath } from '../world/navigation.ts';
 import type { ProductionAction } from './Production.ts';
 
 export type Intent = 'dine-in' | 'takeaway';
@@ -40,7 +42,7 @@ export type RestaurantAction =
   | { kind: 'clean'; tableId: string };
 export type Offer = { command: RestaurantAction; label: string } | { command: null; reason: string };
 export interface RestaurantOptions {
-  arrivalMs: number; dineInChance: number; maxCustomers: number; maxQueueLength: number;
+  arrivalMs: number; dineInChance: number; maxCustomers: number; queueLimits: Record<Intent, number>;
   speed: number; eatingMs: number; price: number;
 }
 
@@ -66,6 +68,10 @@ export class Restaurant {
   private readonly seats = new Map<string, TableState>();
   private readonly lines: Record<Intent, string[]> = { 'dine-in': [], takeaway: [] };
   readonly staff = new Staff();
+  readonly comments = new CustomerComments();
+  private spent = 0;
+  private demandRaised = false;
+  private demandNotice = false;
   private readonly locks = new Map<string, string>();
   private levels: Record<UpgradeId, number> = { cook: 0, cleaner: 0, transport: 0, actionSpeed: 0, stoveSpeed: 0, 'table-3': 0, 'table-4': 0 };
   private readonly random: () => number;
@@ -83,11 +89,17 @@ export class Restaurant {
 
 
   get stations() { return [...STATIONS, ...EXTRA_TABLES.filter(t => this.levels[t.id as UpgradeId] > 0)]; }
+  get routingObstacles(): Rect[] { return [...STATIONS, ...EXTRA_TABLES].map(s => s.footprint); }
   get obstacles(): Rect[] { return this.stations.map(s => s.footprint); }
   get interactionZones(): readonly InteractionZone[] {
     return [...INTERACTION_ZONES, ...EXTRA_TABLES.filter(t => this.levels[t.id as UpgradeId] > 0).map(tableZone)];
   }
-  get playerActionMs(): number { return UPGRADES.actionSpeed.durationsMs[this.levels.actionSpeed]!; }
+  get teamCapacity(): number { return UPGRADES.transport.capacities[this.levels.transport]!; }
+  get totalSpent(): number { return this.spent; }
+  get increasedDemand(): boolean { return this.demandRaised; }
+  get arrivalIntervalMs(): number { return this.options.arrivalMs / (this.demandRaised ? DEMAND.frequencyMultiplier : 1); }
+  takeDemandNotice(): boolean { const value = this.demandNotice; this.demandNotice = false; return value; }
+  get teamActionMs(): number { return UPGRADES.actionSpeed.durationsMs[this.levels.actionSpeed]!; }
   upgradeLevel(id: UpgradeId): number { return this.levels[id]; }
   get activeReservations(): ReadonlyMap<string, string> { return new Map(this.locks); }
   resourceAvailable(resource: string, actorId: string): boolean { return !this.locks.has(resource) || this.locks.get(resource) === actorId; }
@@ -122,21 +134,38 @@ export class Restaurant {
     if (!(id in UPGRADES) || this.levels[id] !== expectedLevel) return false;
     const offer = this.purchaseState(id, player);
     if (offer.problem || offer.price === null) return false;
+    const routes: { actor: { route: Point[] }; path: Point[] }[] = [];
+    if (id.startsWith('table-')) {
+      for (const actor of this.people.values()) {
+        if (!actor.route.length) continue;
+        const path = findCustomerPath(actor.position, actor.route.at(-1)!, this.routingObstacles);
+        if (!path) return false;
+        routes.push({ actor, path });
+      }
+      for (const actor of this.staff.employees) {
+        if (!actor.route.length) continue;
+        const path = findPath(actor.position, actor.route.at(-1)!, this.routingObstacles);
+        if (!path) return false;
+        routes.push({ actor, path });
+      }
+    }
     // No asynchronous work between the validation, debit and effect.
     this.coins -= offer.price; this.levels[id]++;
-    if (id === 'cook' || id === 'cleaner') this.staff.hire(id);
+    this.spent += offer.price;
+    if (!this.demandRaised && this.spent >= DEMAND.spendingThreshold) {
+      this.demandRaised = true; this.demandNotice = true; this.arrivalElapsedMs = 0;
+    }
+    if (id === 'cook' || id === 'cleaner') this.staff.hire(id, this.teamCapacity);
     if (id === 'transport') {
       const capacity = UPGRADES.transport.capacities[this.levels.transport]!;
       this.production.playerInventory.setLimits({ ingredients: capacity, meals: capacity, waste: capacity });
+      this.staff.upgradeCapacity(capacity);
     }
     if (id === 'stoveSpeed') this.production.cookingMs = UPGRADES.stoveSpeed.durationsMs[this.levels.stoveSpeed]!;
     if (id.startsWith('table-')) {
       this.seats.set(id, { id, cleanliness: 'clean', customerId: null, dirtySince: null });
-      // Placement was checked against all live actors and their current route destinations.
-      for (const actor of [...this.people.values(), ...this.staff.employees]) {
-        const destination = actor.route.at(-1);
-        if (destination) actor.route = findPath(actor.position, destination, this.obstacles)!;
-      }
+      // Replan from current positions without changing tasks, reservations or elapsed actions.
+      for (const { actor, path } of routes) actor.route = path;
     }
     return true;
   }
@@ -144,14 +173,15 @@ export class Restaurant {
     const extra = EXTRA_TABLES.find(t => t.id === id)!;
     const obstacles = [...this.obstacles, extra.footprint];
     const actors = [...this.people.values(), ...this.staff.employees];
-    if ([player, ...actors.map(a => a.position)].some(p => !canStand(p, obstacles)))
+    if (!canStand(player, obstacles) || this.staff.employees.some(a => !canStand(a.position, obstacles)) ||
+        [...this.people.values()].some(a => !canStandCustomer(a.position, obstacles)))
       return 'Zona ocupada: cierra el panel y deja libre el espacio.';
     const tableIds = [...this.seats.keys(), id];
     const destinations = [...Object.values(CUSTOMER_LAYOUT), ...Object.values(QUEUE_POINTS).flat(),
       ...Object.values(STAFF_POSITIONS), ...this.interactionZones.map(z => z.position), extra.interaction,
       ...tableIds.flatMap(key => [TABLE_POSITIONS[key]!.seat, CLEANING_WAIT_POINTS[key]!])];
-    if (destinations.some(p => !findPath(PLAYER.spawn, p, obstacles)) ||
-        actors.some(actor => actor.route.length > 0 && !findPath(actor.position, actor.route.at(-1)!, obstacles)))
+    if (destinations.some(p => !findCustomerPath(PLAYER.spawn, p, this.routingObstacles)) ||
+        actors.some(actor => actor.route.length > 0 && !findCustomerPath(actor.position, actor.route.at(-1)!, this.routingObstacles)))
       return 'Espera a que haya un recorrido libre para todos.';
     return null;
   }
@@ -169,16 +199,17 @@ export class Restaurant {
   // One attempted arrival, fixed intention. A full chosen queue drops it, without fallback or debt.
   admitCustomer(intent: Intent): string | null {
     if (this.people.size >= this.options.maxCustomers ||
-        this.lines[intent].length >= Math.min(this.options.maxQueueLength, QUEUE_POINTS[intent].length)) return null;
+        this.lines[intent].length >= Math.min(this.options.queueLimits[intent], QUEUE_POINTS[intent].length)) return null;
     const id = this.epoch + '-c' + (++this.sequence);
     const customer: Customer = {
-      id, number: this.sequence, intent, phase: 'entering', position: { ...CUSTOMER_LAYOUT.entry },
+      id, number: this.sequence, intent, phase: 'entering', position: { ...CUSTOMER_ENTRIES[intent] },
       route: [], waitingSince: null, queueIndex: this.lines[intent].length, orderId: null, eatingElapsedMs: 0, carryingMeal: false,
     };
-    const route = findPath(customer.position, CUSTOMER_LAYOUT.inside, this.obstacles);
+    const route = findCustomerPath(customer.position, QUEUE_POINTS[intent][customer.queueIndex]!, this.routingObstacles);
     if (!route) return null;
     customer.route = route;
     this.people.set(id, customer);
+    this.comments.admit(id);
     this.lines[intent].push(id);
     return id;
   }
@@ -197,8 +228,8 @@ export class Restaurant {
     }
     this.staff.update(this, deltaMs);
     this.arrivalElapsedMs += deltaMs;
-    if (this.arrivalElapsedMs >= this.options.arrivalMs) {
-      this.arrivalElapsedMs %= this.options.arrivalMs;
+    if (this.arrivalElapsedMs >= this.arrivalIntervalMs) {
+      this.arrivalElapsedMs = 0;
       this.admitCustomer(this.random() < this.options.dineInChance ? 'dine-in' : 'takeaway');
     }
   }
@@ -218,9 +249,9 @@ export class Restaurant {
       }).filter(item => item !== null).sort((a, b) =>
         (a.customer.waitingSince! - b.customer.waitingSince!) || a.customer.number - b.customer.number);
       const next = eligible[0];
-      if (!next) return { command: null, reason: this.production.availablePortions < 1 ? 'Deposita una ración disponible antes de cobrar.' :
-        this.lines['dine-in'].length + this.lines.takeaway.length === 0 ? 'Aún no hay clientes en las filas.' :
-        !this.chooseTable() && this.lines['dine-in'].length > 0 ? 'Sin mesas libres; la fila para llevar sigue activa.' : 'Espera a que un cliente llegue a la cabeza de su fila.' };
+      if (!next) return { command: null, reason: this.production.availablePortions < 1 ? 'Faltan platos.' :
+        this.lines['dine-in'].length + this.lines.takeaway.length === 0 ? 'Esperando clientes…' :
+        !this.chooseTable() && this.lines['dine-in'].length > 0 ? 'Sin mesas libres.' : 'El próximo cliente está llegando.' };
       return { command: { kind: 'checkout', customerId: next.customer.id, tableId: next.table?.id ?? null },
         label: 'Cobrar #' + next.customer.number + (next.customer.intent === 'takeaway' ? ' · llevar' : ' · comer aquí') };
     }
@@ -230,8 +261,8 @@ export class Restaurant {
       if (!this.resourceAvailable('table:' + table.id, actorId)) return { command: null, reason: 'Ya están limpiando esta mesa.' };
       if (table.cleanliness === 'dirty') return inventory.canAdd('waste') ?
         { command: { kind: 'clean', tableId: table.id }, label: 'Recoger residuos de ' + this.tableName(table.id) } :
-        { command: null, reason: 'Inventario de residuos lleno.' };
-      return { command: null, reason: table.customerId ? 'Mesa limpia, reservada para su cliente.' : 'Mesa limpia, sin cliente asignado.' };
+        { command: null, reason: 'Carga de residuos completa.' };
+      return { command: null, reason: table.customerId ? 'Mesa reservada.' : 'Mesa limpia.' };
     }
     const kind = this.stations.find(s => s.id === zone.stationId)!.kind;
     const available = this.production.availableAt(kind, inventory, index => this.resourceAvailable('slot:' + index, actorId));
@@ -252,7 +283,7 @@ export class Restaurant {
     if (command.kind === 'production') return this.production.canPerform(command.action, command.slotIndex, inventory) ? null : 'La acción de producción ya no está disponible.';
     if (command.kind === 'clean') {
       const table = this.seats.get(command.tableId);
-      return !inventory.canAdd('waste') ? 'Inventario de residuos lleno.' : table?.cleanliness !== 'dirty' ? 'La mesa ya está limpia.' : null;
+      return !inventory.canAdd('waste') ? 'Carga de residuos completa.' : table?.cleanliness !== 'dirty' ? 'La mesa ya está limpia.' : null;
     }
     if (command.kind === 'checkout') {
       if (actorId !== 'player') return 'La caja la atiende el jugador.';
@@ -277,7 +308,7 @@ export class Restaurant {
       const customer = this.people.get(command.customerId)!;
       const table = command.tableId ? this.seats.get(command.tableId)! : null;
       const destination = table ? (table.cleanliness === 'clean' ? TABLE_POSITIONS[table.id]!.seat : CLEANING_WAIT_POINTS[table.id]!) : CUSTOMER_LAYOUT.exit;
-      const route = findPath(customer.position, destination, this.obstacles);
+      const route = findCustomerPath(customer.position, destination, this.routingObstacles);
       if (!route) return null; // Validate the physical route before stock, money or reservations change.
       const id = 'order-' + customer.id;
       if (!this.production.sellAvailable()) return null;
@@ -285,6 +316,7 @@ export class Restaurant {
         paidAt: this.clockMs, status: table ? 'carried' : 'takeaway' };
       this.tickets.set(id, order);
       customer.orderId = id;
+      this.comments.remove(customer.id);
       customer.carryingMeal = table !== null;
       if (table) table.customerId = customer.id;
       this.coins += this.options.price;
@@ -304,7 +336,8 @@ export class Restaurant {
   }
 
   reset(): void {
-    this.staff.reset(); this.locks.clear();
+    this.staff.reset(); this.locks.clear(); this.comments.reset();
+    this.spent = 0; this.demandRaised = false; this.demandNotice = false;
     for (const id of Object.keys(this.levels) as UpgradeId[]) this.levels[id] = 0;
     this.production.reset();
     this.people.clear(); this.tickets.clear(); this.seats.clear();
@@ -343,7 +376,7 @@ export class Restaurant {
     if (customer.route.length === 0) this.arrived(customer);
   }
   private requireRoute(from: Point, to: Point): Point[] {
-    const route = findPath(from, to, this.obstacles);
+    const route = findCustomerPath(from, to, this.routingObstacles);
     if (!route) throw new Error('El itinerario del cliente no tiene un camino accesible.');
     return route;
   }
@@ -387,14 +420,14 @@ export class Restaurant {
       }
       case 'leaving':
         if (customer.orderId) this.tickets.delete(customer.orderId);
-        this.people.delete(customer.id);
+        this.people.delete(customer.id); this.comments.remove(customer.id);
         break;
     }
   }
   private finishMeal(customer: Customer): void {
     const order = this.tickets.get(customer.orderId!)!;
     const table = this.seats.get(order.tableId!)!;
-    const route = findPath(customer.position, CUSTOMER_LAYOUT.exit, this.obstacles);
+    const route = findCustomerPath(customer.position, CUSTOMER_LAYOUT.exit, this.routingObstacles);
     if (!route) return;
     order.status = 'consumed';
     table.cleanliness = 'dirty'; table.customerId = null; table.dirtySince = this.clockMs;

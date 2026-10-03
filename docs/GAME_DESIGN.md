@@ -1,114 +1,122 @@
 # Warung Kita — diseño acordado
 
-## Alcance y estructura
+## Alcance
 
-Juego de gestión de un warung indonesio para navegador, ordenador y móvil. Un local y una receta: nasi goreng. Phaser 4.2.1, TypeScript estricto, Vite y npm con lockfile. Sin frameworks de interfaz, backend, servicios externos o assets descargados.
+Juego de gestión de un warung indonesio para navegador, ordenador y móvil. Un local y una receta: nasi goreng. Phaser 4.2.1, TypeScript estricto y Vite con npm y lockfile. Sin frameworks de interfaz, backend, servicios externos ni assets descargados. Gráficos provisionales con Phaser.
 
-Los hitos 1–3 están aprobados manualmente, incluidos el control táctil y la cámara centrada. El encargo actual autoriza el hito 4: personal y primeras mejoras. Detenerse después de implementarlo y verificarlo para nueva revisión manual.
+Los hitos 1–4 están aprobados manualmente. Esta revisión autorizada ajusta experiencia y balance: mejoras globales, mesas organizadas, filas largas, demanda por gasto, mensajes ambientales y HUD mínimo. Detenerse después para revisión, sin ampliar el siguiente hito.
 
-Gráficos provisionales con Phaser, vista cenital inclinada y profundidad por los pies. Las huellas físicas de los muebles y la distribución funcional se conservan. Reglas independientes de Phaser/DOM.
+## Movimiento, espacio y cámara
 
-## Movimiento, cámara y exterior
+WASD/flechas, diagonales normalizadas y arrastre relativo sin inercia. Un contacto fija origen con clientX/clientY en píxeles CSS; zona muerta 12 px, recorrido máximo 76 px y exponente 1,25. Un solo puntero. Soltar, cancelar, perder foco, ocultar o redimensionar elimina entradas y permanencia. Se conservan los controles aprobados.
 
-- WASD/flechas con diagonales normalizadas. El jugador no tiene inercia.
-- Arrastre relativo: contacto en una zona libre del lienzo fija el origen hasta soltar. Origen y desplazamiento usan clientX/clientY en píxeles CSS de pantalla; la cámara no interviene.
-- Un único puntero. Un segundo dedo no controla ni hereda el gesto. Volver a la zona muerta, soltar o cancelar detiene inmediatamente. Foco, pestaña oculta y redimensionado cancelan controles y permanencia.
-- Respuesta progresiva: fracción del recorrido útil elevada a 1,25, limitada a 1. Zona muerta de 12 px y velocidad máxima a 76 px. Parámetros en src/config.ts. No se acumulan desplazamientos entre eventos.
-- El usuario ha probado y aprobado estos controles. Las nuevas verificaciones emuladas no sustituyen la prueba de cada dispositivo físico.
-- Cámara con seguimiento directo (factor 1), sin retraso ni límites que detengan su seguimiento. Centra el cuerpo del jugador con un desplazamiento vertical constante de 24 unidades respecto a sus pies.
-- Zoom uniforme y legible, calculado con tamaño de referencia 788 × 554 y mínimo 1,15. HUD, mensajes y control relativo siguen anclados a pantalla.
-- ROOM define exclusivamente el suelo transitable. WORLD identifica el dibujo base del local; no limita la cámara. Los muebles mantienen colisiones e interacciones en coordenadas de mundo.
-- El exterior decorativo se recalcula al redimensionar: cubre todas las vistas centradas posibles dentro de ROOM más media anchura/altura visible de cámara y margen de seguridad. Suelo, acera, calle y árboles geométricos ligeros. No es transitable.
-- Viewport dinámico completo sin scroll ni Fullscreen API, con márgenes seguros.
+Cámara centrada directamente en el cuerpo del jugador, factor 1 y desplazamiento vertical de 24 unidades desde sus pies. Sin límites ni retraso de seguimiento. Zoom uniforme según referencia 788 × 554 y mínimo 1,15. HUD anclado a pantalla con áreas seguras, sin scroll de página.
 
-## Permanencia y producción
+ROOM conserva su tamaño: x64/y144, 752 × 456. Es el único espacio del jugador y empleados. La altura dibujada no modifica huella ni colisiones; profundidad por los pies. El exterior decorativo cubre las vistas alcanzables. Los clientes pueden usar además una franja peatonal específica; eso no amplía el movimiento del jugador ni del personal.
 
-- Una sola interacción activa del jugador. Quietud inicial de 1,5 s en el punto accesible más cercano, con distancia y línea de visión válidas.
-- Cada ciclo transfiere una unidad o atiende un cliente. Reevalúa y comienza otro ciclo completo sin salir. Sin acción válida espera con progreso cero.
-- Intentar moverse, incluso contra un mueble o con teclas opuestas, cancela. Cambiar objetivo o perder validez cancela todo el progreso.
-- Acción, posición de cocina, cliente y mesa quedan fijados durante cada ciclo y se revalidan al ejecutar. No se conserva tiempo sobrante.
-- Inventario simultáneo inicial: 8 ingredientes, 8 platos y 8 residuos. Transporte mejora las tres capacidades a 12 y después a 16, conservando límites independientes.
-- Todos los platos del jugador son producción para depositar; no hay platos vinculados ni acciones de recoger/servir pedidos.
-- Frigorífico ilimitado, una unidad por ciclo hasta llenar ingredientes.
-- Cuatro posiciones de hornillo: vacía/cocinando/lista. Cada ingrediente tarda inicialmente 4 s en paralelo; las mejoras reducen las nuevas cocciones a 3 y 2 s. Cada posición captura su duración al iniciarse. Una lista ocupa posición hasta recogerla.
-- En hornillo se prioriza recoger una lista si cabe un plato; si no, cargar un ingrediente en una posición vacía. Cada transferencia tiene su propio ciclo. Cargar admite inventario de platos lleno.
-- Mostrador sin límite, únicamente stock disponible. Depósito de un plato por ciclo hasta vaciar platos transportados.
-- Papelera solo elimina residuos, uno por ciclo. Nunca descarta ingredientes ni platos.
+## Distribución y navegación
 
-## Feedback de carga
+Cuatro posiciones de mesa en cuadrícula de dos columnas y dos filas, con separación regular. Las dos de arriba son iniciales; las de abajo se compran. Huellas, asientos a la izquierda y puntos de limpieza al frente quedan definidos en src/world/layout.ts. Se conserva la cocina superior; filas a la derecha, separadas de mesas y limpieza.
 
-Las tres categorías se representan con pilas de hasta cuatro objetos, aunque transporten más. El HUD conserva cantidades y límites exactos n/8, n/12 o n/16. Los empleados muestran su propia carga n/4.
+Las rutas automáticas reservan las cuatro huellas de mobiliario desde el inicio. Las posiciones futuras se ven vacías, sin siluetas, sillas ni puntos utilizables. El jugador puede atravesar un espacio vacío; al comprar se verifica que ningún actor quede atrapado. Si está ocupado, la compra espera a que se libere: se deshabilita sin cobrar e indica cerrar el panel para dejar libre el espacio y reintentar. No se materializa un mueble sobre alguien. Al comprar se recalculan las rutas desde las posiciones actuales sin reiniciar tareas ni reservas.
 
-Un indicador breve identifica categoría y +1 o −1 en cada recogida o descarga del jugador, incluyendo cargas al hornillo y residuos a papelera. Se coloca al lado del cuerpo, por encima de los puntos del suelo, dura 650 ms y se mueve 14 unidades. Es un único texto reutilizado, con reloj activo y reinicio, sin partículas ni objetos acumulados.
+Los clientes y empleados siguen rutas físicas sin colisiones rígidas entre personajes. La navegación interior rodea huellas ampliadas. Clientes de entrada recorren su carril desde un punto exterior más allá de la última plaza. Los que pagaron usan destinos propios; quienes salen utilizan un tercer carril por la derecha, pasando por encima de las cabezas de fila para no cortar sus recorridos.
 
-## Clientes, filas y autoservicio
+Los círculos técnicos permanecen ocultos (DEBUG.customerMarkers desactivado). Los puntos de interacción del jugador y sus barras de progreso siguen visibles.
 
-- Llegadas cada 8 s, 50 % comer aquí / 50 % llevar, intención fija. Máximo 10 clientes y tres plazas por fila. Una llegada sin plaza se omite sin deuda ni desvío.
-- Sin impaciencia ni penalizaciones. Las cabezas deben llegar a su plaza; se elige la elegible con mayor espera, con desempate por número de llegada. Sin adelantamientos en la misma fila.
-- Dos puntos de mostrador: Depositar a la izquierda y Caja delante. Se elimina el punto de recogida de pedidos.
-- Caja admite cualquier carga del jugador. Un cliente por ciclo, con reanudación automática cuando vuelve a haber stock y cliente elegible.
-- Para llevar consume una ración y cobra 10 monedas una vez. El cliente sale con su bolsa; no entra comida en inventario del jugador.
-- Comer aquí requiere una ración y mesa sin asignar. Prioriza limpia, permite sucia. Antes de transferir se comprueba ruta; reserva la mesa, descuenta una ración, cobra 10 y entrega el plato al cliente en una operación.
-- No quedan raciones pagadas reservadas en el mostrador. El pedido identifica cliente, mesa y fase de esa única ración: transportada, comiendo o consumida. Se elimina al salir el cliente.
-- Si la mesa está limpia, camina directamente al asiento con su plato y empieza a comer al llegar.
-- Si está sucia, camina a una posición lateral junto a caja y espera llevando su plato. No se acerca a la mesa. CLEANING_WAIT_POINTS asigna un punto distinto por mesa, separado de ambas filas y del acceso de caja.
-- La mesa permanece reservada. Una fila bloqueada por mesas no bloquea ventas para llevar.
-- Al limpiar, solo el cliente asignado abandona la espera y camina al asiento; si aún caminaba a la espera, se redirige desde su posición actual, sin teletransporte.
-- Todos los recorridos rodean las huellas infladas de los muebles. Personajes pueden cruzarse y no bloquean físicamente al jugador.
-- Estados: entrando, caminando a fila, en fila, caminando a espera de limpieza, esperando limpieza, caminando a mesa, comiendo y saliendo.
+## Inventarios y mejoras globales
 
-## Mesas y limpieza
+Cada actor posee inventario independiente y solo categorías aplicables:
 
-Limpieza (limpia/sucia) y asignación (cliente/ninguno) son independientes. Cada mesa conserva un único punto accesible, ahora exclusivo para limpiar.
+- Jugador: ingredientes, platos de producción y residuos.
+- Cocinero: ingredientes y platos.
+- Limpieza: residuos.
 
-Una mesa sucia transfiere una unidad de residuos si queda capacidad. Ingredientes y platos no bloquean limpiar. Limpiar conserva la reserva y activa el recorrido del cliente correspondiente.
+Capacidad inicial **8** por categoría; transporte global la mejora a **12** y **16**. Una compra actualiza todos los inventarios existentes sin cambiar su contenido. Contrataciones posteriores heredan el nivel actual. Las categorías no comparten espacio. El mostrador conserva stock ilimitado.
 
-El cliente come durante 6 s desde que llega al asiento. Al levantarse deja suciedad, libera la mesa y camina a la salida; no se cobra de nuevo. Los residuos usan su propia capacidad hasta llevarlos a papelera.
+La rapidez también es global: **1,5 → 1,2 → 0,9 s** por acción. Afecta recogida, carga, depósito, limpieza, eliminación de residuos y cobro del jugador; el personal usa el mismo tiempo para sus acciones aplicables. Cada ciclo captura su duración al comenzar la permanencia; una tarea que ya está actuando no cambia de duración al mejorar. Un trabajador aún caminando captura el valor cuando empieza a actuar al llegar.
 
-## Tiempo, consistencia e interfaz
+No cambia desplazamiento (jugador 185, personal 110, clientes 90 unidades/s), consumo de clientes (6 s), ni cocción, que conserva su mejora específica.
 
-Restaurant posee clientes, filas, mesas, trazabilidad, dinero, compras y reservas de acciones. Production posee el inventario del jugador, las posiciones del hornillo y el stock disponible. Staff mantiene dos profesiones fijas, sus rutas y tareas; cada empleado posee su Inventory independiente. Las transferencias de Production y la limpieza de Restaurant reciben el inventario del actor. Las vistas representan esos datos.
+## Permanencia, producción y cooperación
 
-HUD: ingredientes, platos, residuos, posiciones cocinando/listas, stock disponible, dinero y filas. Clientes muestran intención, número y espera; transportan visualmente el plato hasta sentarse. Mesas indican limpieza y reserva. Se eliminan indicadores de stock reservado y reparto.
+Una acción válida del jugador requiere quietud en el punto accesible más cercano, dentro de radio y línea de visión. Cada ciclo transfiere una unidad o atiende un cliente; después reevalúa e inicia otro ciclo completo sin salir. Sin acción válida no acumula progreso. Intención de movimiento, incluso contra muebles o con teclas opuestas, cancela el ciclo.
 
-Todos los relojes usan tiempo activo y se pausan sin foco/con pestaña oculta o con el panel de mejoras abierto; sin progreso offline. Delta limitado a 100 ms: por debajo de 10 FPS la simulación avanza más despacio.
+Se fijan acción, posición de hornillo, cliente y mesa al iniciar. Se revalida el mismo comando al completar. No se arrastra tiempo sobrante. Una cancelación pierde todo el progreso.
 
-El reinicio DEV elimina empleados, tareas y reservas de recursos; cierra el panel y cancela entradas. Restablece mejoras, capacidades 8/8/8, acciones 1,5 s, hornillo 4 s y las dos mesas iniciales. Elimina clientes y sus platos, esperas, pedidos, suciedad, stock, inventarios, dinero, selección, permanencia, feedback y temporizadores. Restablece posición y cámara; IDs de nueva generación invalidan referencias a clientes anteriores.
+Frigorífico ilimitado, una unidad por ciclo. Cuatro posiciones de hornillo con relojes propios: vacía/cocinando/lista. Una lista ocupa su posición hasta retirarla. Prioriza recoger una lista si cabe, después cargar un ingrediente en una posición vacía. Se puede cargar aunque la categoría de platos esté llena.
 
-## Personal y cooperación
+Cada ración tarda inicialmente 4 s. Las mejoras específicas reducen nuevas cocciones a 3 y 2 s; una ración iniciada conserva la duración capturada. Beneficia producción de cualquier actor.
 
-Un cocinero y una persona de limpieza como máximo. Se contratan desde Mejoras; aparecen en puntos libres predefinidos y se desplazan a 110 unidades/s. Inventario propio de cuatro unidades por categoría útil, sin heredar transporte del jugador. Cada transferencia requiere 1,5 s junto al destino. No cobran, sirven ni cambian de profesión.
+Depositar convierte un plato transportado en una ración disponible del mostrador por ciclo. Todos los platos del jugador son producción; no hay reparto ni platos ligados a pedidos. La papelera solo elimina residuos, una unidad por ciclo.
 
-El cocinero prioriza depositar si lleva cuatro platos, recoger raciones listas accesibles y depositar el lote parcial si no queda ninguna lista que pueda recoger. Después, si hace falta stock, recoge un lote de ingredientes ajustado a capacidad, posiciones disponibles y demanda hasta el objetivo; carga posiciones libres. Mientras se cocina espera en el hornillo sin cambiar continuamente de destino. Objetivo configurable: 12 raciones disponibles. Al alcanzarlo cancela nuevas cargas/recogidas de ingredientes, termina las cocciones iniciadas y deposita los platos transportados o listos. Puede superar 12 al acabar trabajo iniciado; el jugador puede depositar sin límite. Si baja el stock, vuelve a producir. Ingredientes crudos sobrantes se conservan para la siguiente demanda.
+Las reservas de trabajo bloquean únicamente una posición del hornillo/ración o residuos de una mesa. No bloquean la estación completa ni la asignación del cliente. Se comparten validaciones y transferencias atómicas entre jugador y personal. Completar, cancelar, invalidar, no encontrar ruta o reiniciar libera la reserva.
 
-Limpieza prioriza mesas sucias reservadas, por la antigüedad del pago del cliente que espera; después, mesas sin reserva por antigüedad de suciedad. Vacía en papelera cuando llega a cuatro residuos o no quedan mesas sucias que pueda atender, aunque lleve menos. Sin trabajo vuelve a su punto de espera, fuera del radio de interacción. Una tarea iniciada conserva su objetivo hasta completarse o invalidarse.
+## Personal
 
-La reserva de trabajo bloquea solo una posición del hornillo (vacía o con ración lista) o los residuos de una mesa. No bloquea el hornillo completo, la asignación de mesa ni otras categorías de inventario. Jugador y empleados usan las mismas validaciones y transferencias atómicas. Se valida al iniciar y completar; cancelar, invalidar, no encontrar ruta o reiniciar libera la reserva. El jugador puede ayudar en otra posición o mesa. Las reservas de limpieza conservan la asignación del cliente.
+Como máximo un cocinero y una persona de limpieza. No cambian de profesión, no cobran y no reparten. Caminan hasta su destino y actúan allí.
 
-Las rutas de empleados y clientes usan las mismas huellas de muebles. Los personajes se cruzan sin colisión rígida. El movimiento, las tareas y los tiempos del personal solo consumen tiempo activo.
+El cocinero recoge ingredientes por lotes ajustados a su capacidad y a las raciones necesarias para el objetivo. Así aprovecha 8 o 12 ingredientes en un viaje si hacen falta; si solo falta una ración puede recoger una. Usa posiciones libres del hornillo, recoge raciones listas y deposita al llenar platos o cuando no quedan listas accesibles, incluso con carga parcial. No espera a llenar la capacidad de platos.
 
-## Panel, compras y mesas adicionales
+Objetivo operativo: **12 raciones disponibles**. Deja de iniciar cocciones y recoger ingredientes al alcanzarlo; termina y deposita platos ya iniciados o transportados. Puede superar el objetivo al terminar trabajo pendiente; no limita depósitos del jugador. Reanuda al bajar el stock y conserva materias primas sobrantes. Espera junto al hornillo mientras se cocina y fuera de puntos de acción al quedarse sin demanda; no cambia de objetivo cada frame.
 
-El botón Mejoras abre un diálogo dentro del juego. Cada opción muestra efecto, nivel, precio siguiente y estado de fondos/máximo. Abrir cancela teclas, arrastre y permanencia, libera la reserva del jugador y pausa toda la simulación. Los empleados conservan sus tareas congeladas. Cerrar descarta el delta anterior y exige una nueva entrada de movimiento. Una acción válida puede iniciar una permanencia nueva desde cero.
+Limpieza prioriza mesas sucias reservadas, por antigüedad del pago del cliente que espera. Después atiende otras mesas por antigüedad de suciedad. Vacía residuos al alcanzar su capacidad global o quedarse sin mesas sucias accesibles, aunque lleve menos. Sin tareas vuelve a su punto apartado. Una tarea iniciada mantiene objetivo hasta completarse o invalidarse.
 
-Compras síncronas con saldo suficiente y nivel esperado: validación, descuento único y aplicación del efecto. Un evento antiguo no compra un nivel posterior. La interfaz filtra doble clic y repeticiones inmediatas. No hay punto de compra en el mapa ni botón para añadir dinero.
+## Filas, demanda y ventas
 
-| Opción | Efecto | Precio |
-| --- | --- | --- |
-| Cocinero | Un empleado de producción, carga 4 | 100 |
-| Limpieza | Una persona, residuos 4 | 80 |
-| Transporte | 8 → 12 → 16 por categoría del jugador | 60 / 120 |
-| Rapidez del jugador | 1,5 → 1,2 → 0,9 s por ciclo nuevo | 80 / 160 |
-| Velocidad del hornillo | 4 → 3 → 2 s por cocción nueva | 100 / 200 |
-| Mesa 3 | Una plaza adicional | 80 |
-| Mesa 4 | Una plaza adicional | 140 |
+Dos filas independientes, con cabezas atendidas desde la misma Caja:
 
-Precios y efectos provisionales centralizados en src/config.ts. Venta 10 monedas, saldo inicial 0; demanda sin cambios: 8 s, 50 %, tres por fila y diez clientes máximos. No se ajusta automáticamente al comprar.
+- **Comer dentro: 20 plazas.**
+- **Para llevar: 10 plazas.**
+- **Límite global: 48 clientes**, incluyendo todos los estados, no solo filas.
 
-Las mesas adicionales tienen huellas y puntos definidos en src/world/layout.ts. La mesa 3 queda a la izquierda; la 4 entre las mesas iniciales. Antes de comprarse no tienen mueble, silla, colisión, reserva ni interacción utilizables. Cada una añade asiento y espera junto a caja. La compra verifica que ningún actor quede sobre la huella ampliada y que destinos/rutas sigan accesibles; si el espacio está ocupado no cobra y pide salir del panel para dejarlo libre. Al comprar recalcula las rutas actuales desde sus posiciones, sin teleportar.
+Las posiciones se generan a intervalos de 52 unidades sobre recorridos configurados; no se repite la última plaza. Ambos carriles verticales discurren a la derecha y continúan al exterior peatonal. Los clientes esperan en posiciones distintas; ninguno adelanta en su propia fila. Una cabeza debe alcanzar su destino antes de poder cobrarle. Entre cabezas elegibles, se elige la de mayor espera, con número de llegada como desempate.
 
-Se ocultan los círculos técnicos de filas y espera, conservando sus datos y los puntos de interacción del jugador. DEBUG.customerMarkers permite mostrar las guías para desarrollo y viene desactivado. Las sillas son decoración de cada mesa activa.
+Llegadas iniciales cada **8 s**. Intención **70 % comer dentro / 30 % para llevar**, decidida una vez. Si la fila elegida o el límite global está completo, se omite esa llegada sin cambiar intención ni acumular deuda.
 
-## Alcance posterior
+Se suma gasto acumulado solo por compras correctas: contratación, mejoras y mesas. No cuentan ingresos, saldo actual o compras fallidas. Al llegar o superar **300 monedas gastadas**, la frecuencia aumenta **×1,5**, una única vez: intervalo base / 1,5, aproximadamente **5,33 s**. Se reinicia la espera de llegada para no generar una ráfaga ni una llegada instantánea. Las siguientes compras no vuelven a multiplicar. Aparece durante unos segundos: “¡El warung atrae más clientes!”.
 
-No hay persistencia: recargar vuelve al estado inicial. No añadir recetas, hornillos adicionales, niveles del personal, empleado de caja, tutoriales, arte final, publicidad, sonido o publicación en este hito. No hacer push. Esperar revisión manual antes de otro hito.
+Umbral, multiplicador, proporción y límites son provisionales y están en src/config.ts. Venta 10 monedas y saldo inicial 0, sin cambios.
+
+## Autoservicio, mesas y residuos
+
+La caja admite cualquier carga del jugador. Cada venta retira una ración y cobra 10 una sola vez. Para llevar recibe comida y sale. Comer dentro requiere mesa sin asignar: prioriza limpia, permite sucia. Se valida ruta antes de retirar stock/cobrar/reservar y entregar el plato directamente al cliente.
+
+Si está limpia, camina al asiento con plato y solo come al llegar. Si está sucia, espera llevando su plato en uno de cuatro puntos distintos junto a caja, separados de filas. La mesa permanece reservada. Al limpiar conserva la reserva y ese cliente camina al asiento; si iba hacia la espera cambia ruta desde su posición actual. Una mesa bloqueada no impide ventas para llevar.
+
+Limpieza y asignación son independientes. Mesa sucia transfiere un residuo al actor con capacidad; llevar otros objetos no lo impide. Tras 6 s de comida, el cliente deja suciedad, libera la mesa y sale; no se cobra otra vez. El pedido conserva trazabilidad y se elimina al salir.
+
+## Mensajes ambientales y representación
+
+Comentarios sobre clientes en fila: umbral aleatorio entre **10 y 15 s** asignado una vez. Participación aleatoria inicial del 65 %, de modo que algunos no comentan. Se comprueba cada **1 s**, sin probabilidad por frame ni comprobaciones acumuladas.
+
+Bocadillos de **2,5 s**, máximo **dos** visibles; cada cliente espera al menos **20 s** desde su comentario anterior. Solo aparecen dentro de cámara y se omiten donde se superpondrían a la carga de un actor. También evitan superponerse entre sí. Se retiran al atender, salir de cámara o caducar. No introducen paciencia, abandono o penalización.
+
+HUD permanente: solo **dinero y Mejoras**. Se retiran inventario, stock, cocina, filas, nombre del juego y estados técnicos del HUD. En el mundo se conservan la comida, suciedad, ocupación, las señales de cocción/lista y puntos de acción/progreso. Mensajes contextuales breves como “Carga de ingredientes completa” o “Faltan platos” aparecen junto al jugador cuando cambia la situación, sin repetirse cada frame.
+
+Cada categoría transportada dibuja exactamente su cantidad: 10 ingredientes son diez piezas, siete platos son siete. Son torres pequeñas y distinguibles al lado del cuerpo, sin cambiar colisiones. Las tres pilas simultáneas de 16 conservan rostro y orientación; profundidad por pies. Jugador y empleados comparten CargoView, que reutiliza Graphics y solo redibuja al cambiar cantidades o lado. El indicador +1/−1 se sitúa sobre la carga.
+
+## Panel, tiempo y reinicio
+
+Mejoras se abre desde cualquier lugar. Cancela entradas, gesto y permanencia del jugador, libera su reserva y pausa simulación. Personal conserva tareas congeladas. Cerrar descarta delta y requiere una entrada nueva para moverse; una acción válida puede comenzar desde cero. Compras síncronas con saldo y nivel esperado: descuento único, máximo y protección ante doble pulsación.
+
+| Compra | Precio |
+| --- | --- |
+| Cocinero | 100 |
+| Limpieza | 80 |
+| Capacidad del equipo | 60 / 120 |
+| Rapidez del equipo | 80 / 160 |
+| Velocidad del hornillo | 100 / 200 |
+| Mesa 3 / Mesa 4 | 80 / 140 |
+
+DEV se oculta en un diálogo: **F2** en escritorio o mantener pulsado dinero **1,2 s**. Muestra datos de prueba y reinicio, y también pausa. No hay dinero gratis en interfaz.
+
+Todos los relojes de simulación usan tiempo activo; sin progreso offline. Pérdida de foco/pestaña oculta pausa; reanudar descarta el delta anterior. Delta máximo 100 ms: por debajo de 10 FPS la simulación avanza más despacio.
+
+Reinicio: niveles globales, capacidades 8, acciones 1,5 s, cocción 4 s, gasto cero, demanda base sin activar, comentarios/temporizadores, clientes/filas, reservas, dos mesas iniciales, personal, inventarios, producción, saldo, selección, progreso, feedback, posición y cámara. Cierra los diálogos y limpia entradas.
+
+## Arquitectura y alcance posterior
+
+Restaurant coordina clientes, mesas, compras, dinero, demanda y reservas; Production ejecuta transferencias con el Inventory del actor. Staff lleva dos profesiones concretas; CustomerComments administra señales ambientales con información de visibilidad suministrada por la escena. Reglas independientes de Phaser/DOM. Las vistas representan datos; sin ECS, bus global o sistema genérico de tareas.
+
+No hay persistencia: recargar comienza de cero. No añadir recetas, más hornillos, niveles individuales, cajero, tutoriales, arte final, publicidad, sonido o publicación. Sin push. Detenerse para revisión manual.

@@ -28,7 +28,7 @@ export class Production {
     this.slots = Array.from({ length: count }, () => ({ status: 'empty' }));
   }
   get limits(): InventoryLimits { return this.inventory.limits; }
-  get inventory(): InventoryState { return this.playerInventory.state; }
+  get inventory(): InventoryState { return this.playerInventory.state as InventoryState; }
   get stove(): readonly StoveState[] { return this.slots.map(slot => ({ ...slot })); }
   get stoveSummary(): { cooking: number; ready: number; empty: number } {
     return { cooking: this.slots.filter(s => s.status === 'cooking').length,
@@ -41,19 +41,19 @@ export class Production {
   availableAt(kind: StationKind, inventory = this.playerInventory, slotAllowed: (index: number) => boolean = () => true): Availability {
     switch (kind) {
       case 'fridge': return inventory.canAdd('ingredients') ? { action: 'take-ingredients', label: 'Recoger ingredientes' } :
-        { action: null, reason: 'Inventario de ingredientes lleno.' };
+        { action: null, reason: 'Carga de ingredientes completa.' };
       case 'stove': {
         const ready = this.slots.findIndex((s, i) => s.status === 'ready' && slotAllowed(i));
         const empty = this.slots.findIndex((s, i) => s.status === 'empty' && slotAllowed(i));
         if (ready >= 0 && inventory.canAdd('meals')) return { action: 'take-meal', slotIndex: ready, label: 'Recoger nasi goreng' };
         if (empty >= 0 && inventory.has('ingredients')) return { action: 'start-cooking', slotIndex: empty, label: 'Poner a cocinar' };
-        return { action: null, reason: ready >= 0 && !inventory.canAdd('meals') ? 'Inventario de platos lleno.' :
-          empty >= 0 ? 'Necesitas ingredientes del frigorífico.' : 'Espera una posición o ración libre.' };
+        return { action: null, reason: ready >= 0 && !inventory.canAdd('meals') ? 'Carga de platos completa.' :
+          empty >= 0 ? 'Faltan ingredientes.' : 'Se está cocinando…' };
       }
       case 'counter': return inventory.has('meals') ? { action: 'store-meal', label: 'Depositar nasi goreng' } :
-        { action: null, reason: 'No llevas platos para depositar.' };
+        { action: null, reason: 'No llevas platos.' };
       case 'bin': return inventory.has('waste') ? { action: 'discard', label: 'Tirar residuos' } :
-        { action: null, reason: 'La papelera solo recibe residuos; no llevas ninguno.' };
+        { action: null, reason: 'No llevas residuos.' };
       case 'table': return { action: null, reason: 'Esta mesa solo necesita limpieza cuando está sucia.' };
     }
   }

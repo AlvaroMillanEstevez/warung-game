@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Restaurant, actionKey } from '../src/simulation/Restaurant.ts';
 import { DwellInteraction } from '../src/simulation/DwellInteraction.ts';
 import { CLEANING_WAIT_POINTS, INTERACTION_ZONES, STATIONS, CUSTOMER_LAYOUT, QUEUE_POINTS, TABLE_POSITIONS } from '../src/world/layout.ts';
-import { findPath } from '../src/world/navigation.ts';
+import { findCustomerPath as findPath, canStandCustomer } from '../src/world/customerNavigation.ts';
 import { canStand } from '../src/world/collision.ts';
 import { closestZone } from '../src/world/interaction.ts';
 import { INTERACTION } from '../src/config.ts';
@@ -202,7 +202,7 @@ test('Reinicio desde cada estado de autoservicio elimina plato, espera, reserva,
 });
 
 test('Llegadas sin deuda, desvío ni exceso de clientes', () => {
-  const r = new Restaurant({ arrivalMs: 8000, maxQueueLength: 1 }, () => 0);
+  const r = new Restaurant({ arrivalMs: 8000, queueLimits: { 'dine-in': 1, takeaway: 1 } }, () => 0);
   r.update(7999); assert.equal(r.customers.length, 0);
   r.update(1); assert.equal(r.customers[0].intent, 'dine-in');
   r.update(24000); assert.equal(r.customers.length, 1); assert.equal(r.queue('takeaway').length, 0);
@@ -222,7 +222,7 @@ test('Rutas y puntos de espera libres; movimiento respeta muebles y velocidad, t
       const steps = Math.ceil(Math.hypot(end.x - start.x, end.y - start.y));
       for (let n = 0; n <= steps; n++) {
         const t = steps ? n / steps : 0;
-        assert.ok(canStand({ x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t }, obstacles));
+        assert.ok(canStandCustomer({ x: start.x + (end.x - start.x) * t, y: start.y + (end.y - start.y) * t }, obstacles));
       }
       start = end;
     }
@@ -239,7 +239,7 @@ test('Rutas y puntos de espera libres; movimiento respeta muebles y velocidad, t
     const before = new Map(r.customers.map(c => [c.id, { ...c.position }]));
     r.update(20);
     for (const c of r.customers) {
-      assert.ok(canStand(c.position, obstacles));
+      assert.ok(canStandCustomer(c.position, obstacles));
       const from = before.get(c.id);
       if (from) assert.ok(Math.hypot(c.position.x - from.x, c.position.y - from.y) <= r.options.speed * 0.02 + 0.0001);
     }

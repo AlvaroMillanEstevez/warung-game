@@ -11,7 +11,6 @@ export class Station {
   private chair?: Phaser.GameObjects.Graphics;
   private selected = false;
   private readonly productionArt: Phaser.GameObjects.Graphics;
-  private readonly statusLabel: Phaser.GameObjects.Text;
   private lastProductionKey = '';
 
   constructor(scene: Phaser.Scene, readonly data: StationData) {
@@ -90,10 +89,7 @@ export class Station {
     this.highlight.lineStyle(3, C.highlight).strokeRoundedRect(x - 3, y - lift - 3, w + 6, d + lift + 6, 7).setVisible(false);
     this.productionArt = scene.add.graphics();
     this.visual.add(this.productionArt);
-    this.statusLabel = scene.add.text(x + w / 2, y - lift + (data.kind === 'table' ? 11 : -10), '', {
-      fontFamily: 'Arial, sans-serif', fontSize: '12px', color: '#315e50',
-      backgroundColor: '#fff7e7', padding: { x: 6, y: 4 },
-    }).setOrigin(0.5, 1).setDepth(y + d + 0.3).setVisible(data.kind === 'stove' || data.kind === 'counter' || data.kind === 'table');
+
 
   }
 
@@ -113,9 +109,7 @@ export class Station {
     const lift = this.data.height;
     g.clear();
     if (this.data.kind === 'stove') {
-      const state = production.stoveSummary;
-      this.statusLabel.setText(state.cooking + ' cocinando · ' + state.ready + ' listas');
-      this.statusLabel.setColor(state.ready > 0 ? '#315e50' : '#6c735c');
+
       slots.forEach((slot, index) => {
         if (slot.status === 'empty') return;
         const x = 24 + Math.floor(index / 2) * 50, y = -lift + 16 + (index % 2) * 25;
@@ -130,9 +124,7 @@ export class Station {
       });
     } else if (this.data.kind === 'table') {
       const dirty = table!.cleanliness === 'dirty';
-      this.statusLabel.setText(this.data.name + ' · ' + (dirty ? 'sucia' : 'limpia') +
-        (customer ? ' · #' + customer.number : ' · libre'));
-      this.statusLabel.setColor(dirty ? '#995336' : '#315e50');
+
       if (dirty || customer?.phase === 'eating') {
         g.fillStyle(C.cream).fillEllipse(35, -lift + 31, 29, 16);
         g.fillStyle(dirty ? C.woodDark : C.woodLight).fillEllipse(35, -lift + 31, dirty ? 12 : 23, 9);
@@ -144,7 +136,6 @@ export class Station {
         }
       }
     } else {
-      this.statusLabel.setText(production.availablePortions + ' disponibles');
       // Stock has no cap; artwork stays bounded regardless of the total.
       for (let i = 0; i < Math.min(production.availablePortions, 8); i++) {
         const px = 30 + (i % 4) * 28;
@@ -160,7 +151,7 @@ export class Station {
 
   destroy(): void {
     this.visual.destroy(); this.shadow.destroy(); this.chair?.destroy();
-    this.highlight.destroy(); this.statusLabel.destroy();
+    this.highlight.destroy();
   }
 
   setSelected(selected: boolean): void {
