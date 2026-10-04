@@ -6,8 +6,11 @@ import { Inventory } from './Inventory.ts';
 import type { Restaurant, RestaurantAction, Offer } from './Restaurant.ts';
 
 export type StaffRole = 'cook' | 'cleaner';
+export type StaffId = 'cook' | 'cook-2' | 'cleaner';
 export interface Employee {
-  readonly id: StaffRole;
+  readonly id: StaffId;
+  readonly role: StaffRole;
+  assignedStove: string | null;
   readonly inventory: Inventory;
   position: Point;
   route: Point[];
@@ -15,16 +18,22 @@ export interface Employee {
   retryMs: number;
 }
 export class Staff {
-  private readonly workers = new Map<StaffRole, Employee>();
+  private readonly workers = new Map<StaffId, Employee>();
   get employees(): readonly Employee[] { return [...this.workers.values()]; }
-  get(id: string): Employee | undefined { return this.workers.get(id as StaffRole); }
-  hire(id: StaffRole, capacity: number): void {
+  get(id: string): Employee | undefined { return this.workers.get(id as StaffId); }
+  hire(id: StaffId, capacity: number): void {
     if (this.workers.has(id)) return;
-    this.workers.set(id, { id, inventory: new Inventory(id === 'cook' ? { ingredients: capacity, meals: capacity } : { waste: capacity }),
+    const role = id === 'cleaner' ? 'cleaner' : 'cook';
+    this.workers.set(id, { id, role, assignedStove: null,
+      inventory: new Inventory(role === 'cook' ? { ingredients: capacity, meals: capacity } : { waste: capacity }),
       position: { ...STAFF_POSITIONS[id] }, route: [], task: null, retryMs: 0 });
+    if (this.get('cook') && this.get('cook-2')) {
+      this.get('cook')!.assignedStove = 'stove';
+      this.get('cook-2')!.assignedStove = 'stove-2';
+    }
   }
   upgradeCapacity(capacity: number): void {
-    for (const worker of this.workers.values()) worker.inventory.setLimits(worker.id === 'cook' ?
+    for (const worker of this.workers.values()) worker.inventory.setLimits(worker.role === 'cook' ?
       { ingredients: capacity, meals: capacity } : { waste: capacity });
   }
   reset(): void { this.workers.clear(); }
@@ -38,7 +47,7 @@ export class Staff {
       worker.retryMs = Math.max(0, worker.retryMs - deltaMs);
       if (worker.task && restaurant.validate(worker.task.command, worker.id)) this.cancel(worker.id, restaurant);
       if (!worker.task && worker.retryMs === 0) {
-        const next = worker.id === 'cook' ? this.planCook(worker, restaurant) : this.planCleaner(worker, restaurant);
+        const next = worker.role === 'cook' ? this.planCook(worker, restaurant) : this.planCleaner(worker, restaurant);
         if (next?.offer.command) {
           const route = findPath(worker.position, next.destination, restaurant.routingObstacles);
           if (route && restaurant.beginAction(next.offer.command, worker.id)) {
@@ -48,8 +57,12 @@ export class Staff {
             restaurant.cancelAction(worker.id); worker.retryMs = 500;
           }
         } else if (worker.route.length === 0) {
-          const wait = worker.id === 'cook' && restaurant.production.stoveSummary.cooking > 0 ?
-            restaurant.interactionZones.find(z => z.id === 'stove')!.position : STAFF_POSITIONS[worker.id];
+          const cooking = worker.role === 'cook' ? restaurant.interactionZones.filter(z =>
+            (!worker.assignedStove || z.id === worker.assignedStove) &&
+            restaurant.production.slotsFor(z.id).some(slot => slot.status === 'cooking'))
+            .sort((a, b) => Math.hypot(a.position.x - worker.position.x, a.position.y - worker.position.y) -
+              Math.hypot(b.position.x - worker.position.x, b.position.y - worker.position.y)) : [];
+          const wait = cooking[0]?.position ?? STAFF_POSITIONS[worker.id];
           if (Math.hypot(wait.x - worker.position.x, wait.y - worker.position.y) > 0.1)
             worker.route = findPath(worker.position, wait, restaurant.routingObstacles) ?? [];
         }
@@ -72,21 +85,25 @@ export class Staff {
       const zone = r.interactionZones.find(z => z.id === id)!;
       return { offer: r.offer(zone, worker.id), destination: zone.position };
     };
-    const slots = r.production.stove;
-    const ready = slots.findIndex((s, i) => s.status === 'ready' && r.resourceAvailable('slot:' + i, worker.id));
+    const stoves = r.production.stoveIds.filter(id => !worker.assignedStove || id === worker.assignedStove).map(id => ({ id, slots: r.production.slotsFor(id),
+      position: r.interactionZones.find(z => z.id === id)!.position })).sort((a, b) =>
+      Math.hypot(a.position.x - worker.position.x, a.position.y - worker.position.y) -
+      Math.hypot(b.position.x - worker.position.x, b.position.y - worker.position.y));
+    const ready = stoves.find(stove => stove.slots.some((s, i) =>
+      s.status === 'ready' && r.resourceAvailable('slot:' + stove.id + ':' + i, worker.id)));
     if (inventory.meals === inventory.limits.meals) return select('deposit');
-    if (ready >= 0 && worker.inventory.canAdd('meals')) return select('stove');
+    if (ready && worker.inventory.canAdd('meals')) return select(ready.id);
     if (inventory.meals > 0) return select('deposit'); // Deposit partial batches without waiting for full capacity.
-    if (r.production.availablePortions >= STAFF.cookStockTarget) return null;
-    const empty = slots.filter((s, i) => s.status === 'empty' && r.resourceAvailable('slot:' + i, worker.id)).length;
-    const inFlight = slots.filter(s => s.status !== 'empty').length;
-    const needed = Math.max(0, STAFF.cookStockTarget - r.production.availablePortions - inFlight);
-    if (empty === 0 || needed === 0) return null;
+    const needed = Math.max(0, STAFF.cookStockTarget - r.committedProduction);
+    if (needed === 0) return null;
+    const empty = stoves.find(stove => stove.slots.some((s, i) =>
+      s.status === 'empty' && r.resourceAvailable('slot:' + stove.id + ':' + i, worker.id)));
+    if (!empty) return null;
     const batch = Math.min(inventory.limits.ingredients, needed);
     const fridge = r.interactionZones.find(z => z.id === 'fridge')!.position;
     const atFridge = Math.hypot(worker.position.x - fridge.x, worker.position.y - fridge.y) < 0.1;
     if (inventory.ingredients === 0 || (atFridge && inventory.ingredients < batch)) return select('fridge');
-    return select('stove');
+    return select(empty.id);
   }
   private planCleaner(worker: Employee, r: Restaurant): { offer: Offer; destination: Point } | null {
     const dirty = r.tables.filter(t => t.cleanliness === 'dirty' && r.resourceAvailable('table:' + t.id, worker.id)).sort((a, b) => {

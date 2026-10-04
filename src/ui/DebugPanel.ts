@@ -23,10 +23,14 @@ export class DebugPanel {
     this.onToggle(true);
     const r = this.restaurant;
     document.querySelector('#debug-state')!.textContent = JSON.stringify({
-      gasto: r.totalSpent, demandaAumentada: r.increasedDemand, intervaloMs: r.arrivalIntervalMs,
+      llegadasActivadas: r.arrivalsStarted, primeraLlegadaPendiente: r.awaitingFirstArrival,
+      mesas: r.tables.map(t => t.id), hornillos: r.production.stoveIds,
+      gasto: r.totalSpent, tramoDemanda: r.demandTier, frecuencia: r.demandFrequency, intervaloMs: r.arrivalIntervalMs,
       filas: { dentro: r.queue('dine-in').length, llevar: r.queue('takeaway').length }, clientes: r.customers.length,
       capacidadEquipo: r.teamCapacity, accionMs: r.teamActionMs,
       jugador: r.production.inventory, stock: r.production.availablePortions,
+      produccionComprometida: r.committedProduction, cargasReservadas: r.reservedProduction,
+      personal: r.staff.employees.map(w => ({ id: w.id, hornillo: w.assignedStove, inventario: w.inventory.state, tarea: w.task })),
     }, null, 2);
     this.dialog.showModal();
   }

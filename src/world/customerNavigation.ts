@@ -1,17 +1,20 @@
 import { PLAYER, ROOM } from '../config.ts';
-import { CUSTOMER_EXTERIOR, CUSTOMER_EXIT_LANE, CUSTOMER_EXIT_TURN, CUSTOMER_LAYOUT } from './layout.ts';
+import { CUSTOMER_EXTERIOR, CUSTOMER_EXIT_LANE, CUSTOMER_EXIT_TURN, CUSTOMER_LAYOUT, CUSTOMER_PUBLIC_Y } from './layout.ts';
 import type { Point, Rect } from './layout.ts';
 import { canStand } from './collision.ts';
 import { findPath } from './navigation.ts';
 
 // Only clients may use this exterior walkway. Player/staff navigation remains inside ROOM.
 export function canStandCustomer(point: Point, obstacles: readonly Rect[]): boolean {
-  return canStand(point, obstacles) || (point.x >= CUSTOMER_EXTERIOR.x + PLAYER.halfWidth &&
+  return (point.y >= CUSTOMER_PUBLIC_Y && canStand(point, obstacles)) || (point.x >= CUSTOMER_EXTERIOR.x + PLAYER.halfWidth &&
     point.x <= CUSTOMER_EXTERIOR.x + CUSTOMER_EXTERIOR.width - PLAYER.halfWidth &&
     point.y >= CUSTOMER_EXTERIOR.y + PLAYER.halfHeight && point.y <= CUSTOMER_EXTERIOR.y + CUSTOMER_EXTERIOR.height - PLAYER.halfHeight);
 }
 export function findCustomerPath(start: Point, goal: Point, obstacles: readonly Rect[]): Point[] | null {
   if (!canStandCustomer(start, obstacles) || !canStandCustomer(goal, obstacles)) return null;
+  // Navigation barrier keeps all client routes on the public side, including seat/wait detours.
+  obstacles = [...obstacles, { x: ROOM.x, y: ROOM.y, width: ROOM.width,
+    height: CUSTOMER_PUBLIC_Y - ROOM.y - PLAYER.halfHeight - 2 }];
   const outside = (p: Point) => p.y > ROOM.y + ROOM.height - PLAYER.halfHeight;
   if (outside(start) && outside(goal)) return [{ ...goal }];
   const startGate = outside(start) ? { x: start.x, y: CUSTOMER_LAYOUT.inside.y } : start;

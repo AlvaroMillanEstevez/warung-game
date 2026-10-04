@@ -9,12 +9,14 @@ export class InteractionMarker {
   private selected = false;
 
   constructor(scene: Phaser.Scene, readonly zone: InteractionZone) {
-    this.ring = scene.add.graphics().setDepth(-0.25);
-    this.bar = scene.add.graphics().setDepth(1000);
+    // The rear checkout marker is outlined over the counter artwork; actor depth stays at its feet.
+    const rear = zone.role === 'checkout';
+    this.ring = scene.add.graphics().setDepth(rear ? 1000 : -0.25);
+    this.bar = scene.add.graphics().setDepth(1002);
     this.label = scene.add.text(zone.position.x, zone.position.y + 16, zone.name, {
       fontFamily: 'Arial, sans-serif', fontSize: '11px', color: '#526451',
       backgroundColor: '#eee4ce', padding: { x: 4, y: 2 },
-    }).setOrigin(0.5, 0).setDepth(-0.1);
+    }).setOrigin(0.5, 0).setDepth(rear ? 1001 : -0.1);
     this.drawRing();
   }
   update(selected: boolean, progress: number): void {

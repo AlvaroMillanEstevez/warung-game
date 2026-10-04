@@ -4,8 +4,8 @@ import type { Restaurant } from '../simulation/Restaurant';
 import type { Point } from '../world/layout';
 
 const NAMES: Record<UpgradeId, string> = {
-  cook: 'Cocinero', cleaner: 'Limpieza', transport: 'Capacidad del equipo',
-  actionSpeed: 'Rapidez del equipo', stoveSpeed: 'Cocina más rápida', 'table-3': 'Mesa 3', 'table-4': 'Mesa 4',
+  cook: 'Contratar cocinero', cleaner: 'Limpieza', transport: 'Capacidad del equipo',
+  actionSpeed: 'Rapidez del equipo', stoveSpeed: 'Cocina más rápida', tables: 'Añadir mesa', stove: 'Añadir hornillo',
 };
 export class UpgradePanel {
   private readonly dialog = document.querySelector<HTMLDialogElement>('#upgrades-panel')!;
@@ -19,7 +19,6 @@ export class UpgradePanel {
   constructor(private readonly restaurant: Restaurant, private readonly position: () => Point,
     private readonly onToggle: (open: boolean) => void, private readonly onPurchase: () => void) {
     const options = { signal: this.abort.signal };
-    document.querySelector('#open-upgrades')!.addEventListener('click', () => this.open(), options);
     document.querySelector('#close-upgrades')!.addEventListener('click', () => this.close(), options);
     this.dialog.addEventListener('cancel', event => { event.preventDefault(); this.close(); }, options);
   }
@@ -39,14 +38,16 @@ export class UpgradePanel {
   destroy(): void { this.close(); this.abort.abort(); }
   private effect(id: UpgradeId, level: number): string {
     switch (id) {
-      case 'cook': return level ? 'Contratado · carga propia de ' + this.restaurant.teamCapacity :
-        'Prepara y deposita platos. Carga propia de ' + this.restaurant.teamCapacity + '; objetivo de stock ' + STAFF.cookStockTarget + '.';
+      case 'cook': return 'Cocineros: ' + level + '/2. Carga propia de ' + this.restaurant.teamCapacity +
+        '; objetivo conjunto de ' + STAFF.cookStockTarget + ' raciones. ' +
+        (level === 2 ? 'Cada uno trabaja en su hornillo.' : 'El segundo requiere otro hornillo.');
       case 'cleaner': return level ? 'Contratada · residuos propios ' + this.restaurant.teamCapacity :
         'Limpia mesas y vacía residuos. Carga propia de ' + this.restaurant.teamCapacity + '; prioriza a los clientes que esperan.';
       case 'transport': return UPGRADES.transport.capacities[level] + ' por categoría aplicable, para todo el equipo: jugador y empleados.';
       case 'actionSpeed': return UPGRADES.actionSpeed.durationsMs[level]! / 1000 + ' s por acción de todo el equipo. Conserva las acciones en curso.';
       case 'stoveSpeed': return UPGRADES.stoveSpeed.durationsMs[level]! / 1000 + ' s por ración nueva. Conserva las cocciones en curso.';
-      default: return level ? 'Mesa disponible para comer y limpiar.' : 'Añade una mesa en su espacio fijo del local.';
+      case 'tables': return 'Mesas: ' + (2 + level) + '/6. Añade una mesa en su espacio fijo.';
+      case 'stove': return 'Hornillos: ' + (1 + level) + '/2. Cuatro posiciones independientes por hornillo.';
     }
   }
   private render(): void {
@@ -60,7 +61,7 @@ export class UpgradePanel {
       const title = document.createElement('h3');
       title.textContent = NAMES[id];
       const current = document.createElement('p');
-      current.textContent = 'Nivel ' + state.level + '/' + UPGRADES[id].prices.length + ' · ' + this.effect(id, state.level);
+      current.textContent = (id === 'tables' || id === 'stove' || id === 'cook' ? '' : 'Nivel ' + state.level + '/' + UPGRADES[id].prices.length + ' · ') + this.effect(id, state.level);
       description.append(title, current);
       if (state.price !== null && ['transport', 'actionSpeed', 'stoveSpeed'].includes(id)) {
         const next = document.createElement('p');
@@ -72,7 +73,7 @@ export class UpgradePanel {
       button.type = 'button';
       button.dataset.upgrade = id;
       button.disabled = state.problem !== null;
-      button.textContent = state.price === null ? 'Máximo' : 'Comprar · ' + state.price;
+      button.textContent = state.price === null ? (id === 'tables' ? 'Espacio completo' : id === 'cook' ? 'Equipo completo' : 'Máximo alcanzado') : 'Comprar · ' + state.price;
       button.setAttribute('aria-label', NAMES[id] + ' · ' + button.textContent);
       button.addEventListener('click', event => {
         if (event.detail > 1 || performance.now() - this.lastPurchase < 450) return;

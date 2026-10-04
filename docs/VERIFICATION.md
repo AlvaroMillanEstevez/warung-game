@@ -1,73 +1,78 @@
-# Verificación de la revisión de experiencia y balance
+# Verificación de oficina, demanda y dos cocineros
 
-Fecha: 2026-10-03. Los hitos 1–4 están aprobados manualmente. Esta revisión queda pendiente de la revisión jugable del usuario.
+Fecha: 2026-10-04. Los hitos 1–4, la revisión de experiencia y el cierre anterior del local están aprobados manualmente. Estos nuevos ajustes quedan pendientes de revisión jugable.
 
-## Entorno y comprobaciones
+## Comprobaciones ejecutadas
 
-- WSL Ubuntu 22.04, Node 24.18.0, npm 11.16.0.
-- Phaser 4.2.1, TypeScript estricto 7.0.2 y Vite 8.3.2. Sin dependencias nuevas ni cambios del lockfile.
-- `npm test`: **43 pruebas correctas**, con node:test.
-- `npm run typecheck`: correcto, ejecutado también dentro del build.
-- `npm run build`: correcto; JavaScript 1.437,94 kB / 377,41 kB gzip. Sigue el aviso del bundle de Phaser superior a 500 kB.
-- `git diff --check`: correcto.
-- Sin publicación, push ni persistencia.
+- npm test: **62 pruebas correctas**, node:test, sin framework adicional.
+- npm run typecheck: correcto.
+- npm run build: correcto. JavaScript **1.442,66 kB / 378,95 kB gzip**; continúa el aviso del bundle de Phaser superior a 500 kB.
+- git diff --check: correcto.
+- Phaser 4.2.1, TypeScript estricto, Vite, npm y lockfile conservados; ninguna dependencia nueva.
+- Sin publicación ni push.
 
-## Reglas cubiertas
+## Reglas
 
-Se conservan pruebas de producción, permanencia continua, controles, cámara, transferencias atómicas, autoservicio, asignación/limpieza independientes y cooperación. La revisión comprueba:
+Las pruebas anteriores conservan permanencia, inventarios, transferencias atómicas, filas, mesas, limpieza, mejoras, comentarios y navegación. Las revisadas/nuevas cubren:
 
-1. Capacidades globales 8/12/16 para empleados presentes y posteriores, sin añadir categorías inaplicables.
-2. Lotes de ingredientes según capacidad y necesidad; depósitos y eliminación de residuos parciales, objetivo de stock 12.
-3. Duración capturada al empezar a actuar; una mejora no completa tareas iniciadas ni cambia desplazamiento, consumo o cocción.
-4. Gasto acumulado por compras correctas, cruce 240 → 320, activación única, exclusión de fallos/ingresos/saldo y ausencia de llegada inmediata.
-5. Intención 70/30 decidida una vez; omisión sin desvío ni deuda cuando se llena la fila elegida o el límite global.
-6. Treinta plazas distintas, separadas y accesibles; recorridos sobre huellas actuales/futuras, tramo exterior solo para clientes.
-7. Pedidos para llevar atendibles con todas las mesas asignadas y ambas filas largas.
-8. Seguridad de compra de mesas, acceso a todos los destinos, recálculo desde posiciones actuales sin teletransporte ni pérdida de tareas/reservas. Un cliente que ya sale por su carril no retrocede al recalcular.
-9. Umbral individual de comentarios, participación, comprobación por intervalos, duración, máximo dos, visibilidad, enfriamiento y retirada al cobrar.
-10. Reinicio de gasto, demanda, comentarios, capacidades, tiempos, empleados, reservas, producción y mesas.
+1. Espera sin movimiento, desplazamiento efectivo, demora única de 8 s, ausencia de reinicio al moverse otra vez, depósitos irrelevantes y reinicio DEV. La cocina autónoma puede completar 12 sin activar llegadas.
+2. Frecuencias absolutas 0,8 / 1,2 / 1,5; intervalos 10.000 / 6.666,67 / 5.333,33 ms; límites de gasto 299/300/599/600, gasto solo por compras correctas, aviso consumible único y tramo final directo.
+3. Cambio de tramo conserva el reloj del primero; después programa un intervalo completo sin deuda ni ráfaga. Filas llenas no desvían intención.
+4. Segundo cocinero por 220, primero por 100, requisito de primer cocinero y segundo hornillo operativo; un nivel sin hornillo real no basta. Máximo dos, descuento único y «Equipo completo».
+5. Capacidad y rapidez globales heredadas antes/después de contratar; profesiones e inventarios independientes. Asignación fija con dos y acceso a ambos con uno.
+6. Contratar el segundo conserva posición, libera tareas del primero incompatibles con su nueva asignación y no teletransporta.
+7. Objetivo conjunto 12: stock, platos de ambos, cocinando/listos y cargas reservadas sin duplicación. Reserva durante el viaje; competencia por la última capacidad; revalidación ante producción manual.
+8. Cancelar, invalidar, ruta imposible o reset liberan capacidad y recursos. Ventas permiten reanudar sin reservas huérfanas.
+9. Dos cocineros producen simultáneamente, usan solo su hornillo, caminan a velocidad configurada, depositan lotes parciales y vuelven a trabajar tras ventas con seis mesas.
+10. Jugador colabora en ambos, no toma recursos reservados y puede superar 12; los cocineros terminan lo ya producido.
+11. Oficina sin mueble/huella antigua, alfombra accesible, zonas sin solapamientos y rutas a todas las estaciones.
+12. Zoom exactamente 0,85 del cálculo anterior, exterior suficiente en esquinas y arrastre CSS independiente del encuadre.
 
-Dinero y estados concretos se preparan como fixtures para aislar casos. El juego normal conserva saldo inicial cero y precio de venta 10; no hay control de dinero gratis.
+Fondos y estados específicos se preparan en tests; no existe dinero gratis en la interfaz.
 
 ## Navegador de escritorio
 
-Edge/Chromium headless mediante Playwright ya instalado en el entorno; no se añadió al proyecto. Servidor Vite local. Sin errores de consola ni excepciones en las ejecuciones correctas.
+Edge/Chromium headless con Playwright ya disponible en el entorno, sin instalar dependencias. Viewport 1440 × 1000. Sin errores de consola ni excepciones.
 
-- Movimiento con teclado hasta frigorífico y caja; recogida continua y feedback de carga.
-- HUD reducido a dos botones, DEV oculto, apertura mediante F2 y reinicio completo.
-- Compras desde el panel: mejoras globales, una notificación al superar el umbral, capacidad 16 para cada categoría aplicable.
-- Panel abierto congela reloj, clientes y personal; cancela entradas y progreso del jugador.
-- Simulación de 600 s activos con personal, cuatro mesas y demanda aumentada, avanzando la escena en pasos de 50 ms. El circuito mantiene ventas y limpieza sin atravesar muebles.
-- Escenario preparado con cuatro clientes comiendo, filas de 20/10 y treinta posiciones distintas. Clientes recorren sus rutas hasta los destinos.
-- Inspección de torres 10/7/5 y máximos: jugador 16/16/16, cocinero 16/16, limpieza 16. Instrumentación de llamadas Graphics confirma el número de piezas; una actualización sin cambios no redibuja. Profundidad por pies.
-- Capturas revisadas de panel, distribución, filas exteriores y cargas máximas.
+- Espera y teclado contra la pared no activan llegadas.
+- Recorrido real con teclado desde inicio a alfombra de oficina; apertura por permanencia antes del primer cliente. Pausa de la cuenta inicial, conservada durante compras que cruzan ambos tramos.
+- Una tarjeta para contratar; requisito visible antes de comprar otro hornillo, segunda contratación habilitada después, «Equipo completo» al llegar a dos.
+- Primer cliente llega sin stock preparado. Cerrar oficina no la reabre; salir y regresar sí.
+- Compra por interfaz de dos cocineros, limpieza, mejoras, dos hornillos y seis mesas.
+- Con jugador atendiendo caja y equipo completo se avanzaron **600 s activos en pasos de 50 ms**: **112 ventas, 82 limpiezas, 61 depósitos de cada cocinero**. Se observaron cocciones simultáneas y asignaciones correctas; producción comprometida máxima **12**, sin atravesar mobiliario.
+- Reinicio con F2 elimina empleados y vistas, asignaciones, reservas, gasto y activación; restaura un hornillo y oficina disponible.
+- Capturas inspeccionadas: puerta/alfombra integradas y legibles, dos cocineros visibles y cámara más alejada. Zoom de juego calculado, sin reducirlo adicionalmente para las capturas.
 
-La simulación acelerada no equivale a diez minutos de rendimiento sostenido a tiempo real. El escenario de máxima ocupación prepara inventarios, pedidos y tiempos específicos. La captura de conjunto usa cámara de prueba alejada para abarcar las treinta plazas; la cámara normal sigue centrada en el jugador.
+Los 600 s son simulación controlada, no diez minutos de rendimiento sostenido en tiempo real. Compras avanzadas usan fondos preparados; se preparan algunas posiciones para aislar pruebas.
 
 ## Móvil emulado
 
-Contexto con eventos táctiles a 390 × 844; revisión adicional en 320 × 568, 844 × 390 y 568 × 320.
+Edge/Chromium con eventos táctiles. Inicio a 390 × 844; comprobación adicional a 320 × 568, 844 × 390 y 568 × 320.
 
-- Arrastre relativo, cancelación de contacto capturado al abrir panel y ausencia de movimiento residual. En ese caso se abre por DOM para mantener el contacto durante la comprobación.
-- Compras mediante taps; personal contratado después de transporte hereda capacidad 16.
-- HUD con dinero y Mejoras dentro de pantalla, objetivos de al menos 44 px, panel con scroll interior sin desbordamiento horizontal y última compra/cierre accesibles.
-- Cargas máximas visibles al lado del cuerpo en vertical y horizontal.
-- Dos comentarios visibles como máximo; desaparecen al mover la cámara fuera de sus clientes. Se prepara participación/espera para reproducir el escenario.
-- Pérdida de foco congela relojes; al recuperar foco se descarta un delta simulado de diez minutos sin nuevas llegadas.
-- Mantener dinero abre DEV; reinicio táctil elimina clientes, comentarios, personal, gasto, demanda aumentada y mesas compradas.
-- Sin errores de consola ni excepciones.
+- Recorrido por arrastre hasta oficina; contacto quieto se cancela al abrir. Compras mediante taps, mejoras antes de contratar y capacidad 16 heredada por ambos.
+- Pausa de cuenta inicial durante compras; cerrar permanece cerrado y no deja movimiento residual.
+- Mismo gesto de **40 píxeles CSS** probado con zoom 1 / 2 / 0,85: vector idéntico x=0,3558136, y=0.
+- Handler de visibilidad y protección de la escena: cuenta inicial congelada en 3000 ms con pestaña oculta simulada; volver descarta delta grande, sin cliente anticipado ni puntero retenido.
+- Dos cocineros, dos hornillos y seis mesas en las cuatro resoluciones. Zoom 1,294946 en 390 × 844 y 0,9775 en las otras tres; tamaños del HUD/panel independientes.
+- Diálogos dentro de viewport, sin desbordamiento horizontal; última compra y cierre accesibles mediante scroll. Objetivo táctil de dinero de al menos 44 px.
+- Pulsación prolongada de dinero abre DEV; reinicio táctil borra segundo cocinero y vistas, reservas, gasto, activación y bloqueo de oficina.
+- Capturas de mundo, oficina y panel revisadas visualmente.
 
-La emulación no demuestra comodidad en un teléfono físico. No se ha certificado Safari/iOS, Firefox, dispositivos lentos ni sesiones de varias horas.
+## Exterior y evidencia
 
-## Evidencia y pendientes
+Se verificaron en navegador las cuatro esquinas transitables para 1440 × 1000 y los cuatro tamaños móviles: **20 encuadres contenidos en el exterior decorativo**. Capturas de esquina revisadas; el margen se recalcula con el zoom nuevo.
 
-Evidencia local en `artifacts/`, excluida de Git:
+Evidencia local ignorada por Git en artifacts/:
 
-- `experience-desktop.cjs` y `experience-desktop-results.json`.
-- `experience-mobile.cjs` y `experience-mobile-results.json`.
-- Capturas `experience-*.png` de interfaz, cargas, comentarios, mesas y filas.
-- Los archivos `hito4-*`, `selfservice-*`, `revision-*` y `hito3-*` documentan entregas anteriores.
+- team-revision.cjs y team-revision-results.json.
+- team-corners.cjs y team-corners-results.json.
+- team-*.png: oficina, ambos cocineros, paneles y encuadres.
+- local-* y experience-* corresponden a versiones anteriores y no describen las reglas actuales.
 
-Pendientes: revisión manual del recorrido en README, balance económico y sensaciones táctiles en dispositivo físico. Valores provisionales: demanda 70/30, intervalo 8 → 5,33 s al gastar 300, filas 20/10 y límite global 48. Se conserva el límite de delta activo de 100 ms y la ausencia de progreso offline.
+README, diseño, roadmap y AGENTS actualizados, retirando el arranque por depósito.
 
-**Detener el desarrollo tras esta revisión**, antes de ampliar el siguiente hito. El recorrido manual de demanda y mejoras globales está en [README.md](../README.md).
+## Límites pendientes
+
+Revisión humana del ritmo económico y sensaciones de control, teléfono físico y sesiones prolongadas. Emular móvil no acredita comodidad táctil real. Sin certificación Safari/iOS, Firefox ni dispositivos lentos. Los personajes pueden cruzarse; delta máximo 100 ms, sin progreso offline ni persistencia.
+
+Recorrido manual en [README.md](../README.md), incluido observar amarillo en hornillo izquierdo y coral en derecho, vender varias raciones y comprobar que ambos reanudan. Detener aquí para revisión.

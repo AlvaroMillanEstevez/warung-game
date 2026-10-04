@@ -9,7 +9,8 @@ import { closestZone } from '../src/world/interaction.ts';
 import { INTERACTION } from '../src/config.ts';
 
 const zone = id => INTERACTION_ZONES.find(z => z.id === id);
-const make = options => new Restaurant({ arrivalMs: 1e9, eatingMs: 100000, ...options });
+// Isolate manual admissions from the new first-movement arrival schedule.
+const make = options => { const r = new Restaurant({ arrivalMs: 1e9, eatingMs: 100000, ...options }); r.arrivalsActive = true; r.firstArrival = false; return r; };
 function cook(p) {
   assert.ok(p.perform('take-ingredients')); assert.ok(p.perform('start-cooking'));
   p.update(p.cookingMs); assert.ok(p.perform('take-meal'));
@@ -195,7 +196,7 @@ test('Reinicio desde cada estado de autoservicio elimina plato, espera, reserva,
     assert.equal(r.queue('dine-in').length + r.queue('takeaway').length, 0);
     assert.ok(r.tables.every(t => t.cleanliness === 'clean' && t.customerId === null));
     assert.equal(r.production.inventory.ingredients + r.production.inventory.meals + r.production.inventory.waste, 0);
-    assert.ok(r.production.stove.every(slot => slot.status === 'empty'));
+    assert.ok(r.production.slotsFor('stove').every(slot => slot.status === 'empty'));
     const fresh = r.admitCustomer('dine-in'); assert.notEqual(fresh, id);
     assert.equal(r.perform(sale), null);
   }
@@ -203,6 +204,7 @@ test('Reinicio desde cada estado de autoservicio elimina plato, espera, reserva,
 
 test('Llegadas sin deuda, desvío ni exceso de clientes', () => {
   const r = new Restaurant({ arrivalMs: 8000, queueLimits: { 'dine-in': 1, takeaway: 1 } }, () => 0);
+  r.playerMoved({ x: 378, y: 735 }, { x: 379, y: 735 });
   r.update(7999); assert.equal(r.customers.length, 0);
   r.update(1); assert.equal(r.customers[0].intent, 'dine-in');
   r.update(24000); assert.equal(r.customers.length, 1); assert.equal(r.queue('takeaway').length, 0);

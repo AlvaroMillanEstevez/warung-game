@@ -37,7 +37,9 @@ test('El mismo desplazamiento no acumula eventos ni depende del origen absoluto;
 test('Exterior contiene la vista centrada en todas las esquinas para escritorio, móvil y orientación', () => {
   for (const [width, height] of [[320,568],[390,844],[568,320],[844,390],[1440,1000],[2560,1080],[7680,2160]]) {
     const { zoom, exterior } = viewportGeometry(width, height);
-    assert.ok(zoom >= CAMERA.minimumZoom);
+    const previousZoom = Math.max(width / CAMERA.viewSize.width, height / CAMERA.viewSize.height, CAMERA.minimumZoom);
+    assert.equal(zoom, previousZoom * .85);
+    assert.ok(zoom >= CAMERA.minimumZoom * CAMERA.zoomMultiplier);
     for (const x of [ROOM.x, ROOM.x + ROOM.width]) for (const y of [ROOM.y, ROOM.y + ROOM.height]) {
       const left = x - width / zoom / 2, top = y - CAMERA.headOffset - height / zoom / 2;
       assert.ok(left >= exterior.x && top >= exterior.y);

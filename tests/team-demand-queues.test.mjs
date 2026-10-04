@@ -7,7 +7,7 @@ import { QUEUE_POINTS, QUEUE_SPACING, EXTRA_TABLES, INTERACTION_ZONES, CLEANING_
 import { canStand, moveWithCollisions } from '../src/world/collision.ts';
 import { canStandCustomer } from '../src/world/customerNavigation.ts';
 
-const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 2000; return r; };
+const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 2000; r.arrivalsActive = true; r.firstArrival = false; return r; };
 const buy = (r, id) => assert.ok(r.purchase(id, r.upgradeLevel(id)), r.purchaseState(id).problem);
 const advance = (r, ms) => { for (let t = 0; t < ms; t += 50) r.update(Math.min(50, ms - t)); };
 function until(r, condition, limit = 90000) {
@@ -66,42 +66,61 @@ test('Acción del trabajador captura duración al comenzar; mejora no completa t
   assert.equal(r.options.speed, 90); assert.equal(r.options.eatingMs, 6000); assert.equal(r.production.cookingMs, 4000);
 });
 
-test('Gasto cruza 300 una sola vez: fallos/ingresos/saldo no cuentan y no causa ráfaga', () => {
+test('Tres frecuencias absolutas, compras válidas, aviso único y siguiente intervalo sin deuda', () => {
   const r = new Restaurant({}, () => 0);
   assert.equal(r.purchase('cook', 0), false); assert.equal(r.totalSpent, 0);
-  r.coins = 1000; assert.equal(r.increasedDemand, false);
-  buy(r, 'cook'); buy(r, 'cleaner'); buy(r, 'transport');
-  assert.equal(r.totalSpent, 240); assert.equal(r.arrivalIntervalMs, 8000);
-  r.update(7900); const count = r.customers.length;
-  assert.equal(r.purchase('cook', 0), false); assert.equal(r.totalSpent, 240);
-  const before = r.money;
-  buy(r, 'actionSpeed'); // 320, intentionally skips exact equality.
-  assert.equal(r.totalSpent, 320); assert.equal(r.money, before - 80);
-  assert.equal(r.arrivalIntervalMs, 8000 / 1.5);
+  r.coins = 5000;
+  r.playerMoved({ x: 378, y: 735 }, { x: 379, y: 735 });
+  buy(r, 'cook'); buy(r, 'cleaner'); buy(r, 'transport'); // 240
+  assert.equal(r.arrivalIntervalMs, 10000);
+  r.update(4000);
+  buy(r, 'actionSpeed'); // 320: changing demand preserves the first countdown.
+  assert.equal(r.arrivalElapsedMs, 4000);
+  assert.equal(r.arrivalIntervalMs, 8000 / 1.2);
   assert.equal(r.takeDemandNotice(), true); assert.equal(r.takeDemandNotice(), false);
-  r.update(1); assert.equal(r.customers.length, count);
-  r.update(r.arrivalIntervalMs - 2); assert.equal(r.customers.length, count);
-  r.update(1); assert.equal(r.customers.length, count + 1);
-  buy(r, 'transport'); assert.equal(r.arrivalIntervalMs, 8000 / 1.5); assert.equal(r.takeDemandNotice(), false);
-  r.update(600000); assert.equal(r.customers.length, count + 2);
-  r.update(1); assert.equal(r.customers.length, count + 2);
-  r.reset(); assert.equal(r.totalSpent, 0); assert.equal(r.increasedDemand, false); assert.equal(r.arrivalIntervalMs, 8000);
-  assert.equal(r.takeDemandNotice(), false);
-  assert.equal(DEMAND.spendingThreshold, 300);
+  r.update(3999); assert.equal(r.customers.length, 0);
+  r.update(1); assert.equal(r.customers.length, 1);
+  r.update(5000);
+  buy(r, 'stove'); buy(r, 'stoveSpeed'); // 600 exactly
+  assert.equal(r.totalSpent, 600); assert.equal(r.demandTier, 2);
+  assert.equal(r.arrivalIntervalMs, 8000 / 1.5); assert.equal(r.arrivalElapsedMs, 0);
+  assert.equal(r.takeDemandNotice(), true); assert.equal(r.takeDemandNotice(), false);
+  assert.equal(r.purchase('stove', 0), false); assert.equal(r.totalSpent, 600);
+  r.update(r.arrivalIntervalMs - 1); assert.equal(r.customers.length, 1);
+  r.update(1); assert.equal(r.customers.length, 2);
+  buy(r, 'transport'); buy(r, 'stoveSpeed');
+  assert.equal(r.arrivalIntervalMs, 8000 / 1.5); assert.equal(r.takeDemandNotice(), false);
+  r.update(600000); assert.equal(r.customers.length, 3);
+  r.update(1); assert.equal(r.customers.length, 3);
+  r.reset(); assert.equal(r.totalSpent, 0); assert.equal(r.demandTier, 0);
+  assert.equal(r.arrivalIntervalMs, 10000); assert.equal(r.takeDemandNotice(), false);
+});
+
+test('Límites exactos de gasto y salto de varios umbrales eligen el tramo final una sola vez', () => {
+  for (const [spent, frequency] of [[299, .8], [300, 1.2], [599, 1.2], [600, 1.5]]) {
+    const r = new Restaurant(); r.coins = 1000;
+    r.spent = spent - 100; // Isolate each purchase boundary without changing provisional prices.
+    buy(r, 'cook'); assert.equal(r.totalSpent, spent); assert.equal(r.demandFrequency, frequency);
+  }
+  const r = new Restaurant(); r.coins = 1000;
+  r.spent = 500; // A previously unobserved tier fixture; one purchase crosses both tier checks.
+  buy(r, 'cook'); assert.equal(r.demandTier, 2);
+  assert.equal(r.takeDemandNotice(), true); assert.equal(r.takeDemandNotice(), false);
 });
 
 test('70/30 decide intención una vez y descarta llegada si esa fila está llena; nunca desvía', () => {
   let value = .69;
   const r = new Restaurant({ queueLimits: { 'dine-in': 1, takeaway: 1 } }, () => value);
-  r.update(8000); assert.equal(r.queue('dine-in').length, 1);
-  r.update(8000); assert.equal(r.customers.length, 1); assert.equal(r.queue('takeaway').length, 0);
-  value = .7; r.update(8000); assert.equal(r.queue('takeaway').length, 1);
+  r.playerMoved({ x: 378, y: 735 }, { x: 379, y: 735 });
+  r.update(DEMAND.firstArrivalDelayMs); assert.equal(r.queue('dine-in').length, 1);
+  r.update(r.arrivalIntervalMs); assert.equal(r.customers.length, 1); assert.equal(r.queue('takeaway').length, 0);
+  value = .7; r.update(r.arrivalIntervalMs); assert.equal(r.queue('takeaway').length, 1);
   advance(r, 40000); assert.equal(r.customers.length, 2);
   assert.deepEqual(CUSTOMERS.queueLimits, { 'dine-in': 20, takeaway: 10 });
 });
 
 test('30 plazas distintas y espaciadas: rutas reales, muebles futuros reservados y exterior exclusivo de clientes', () => {
-  const r = make(); buy(r, 'table-3'); buy(r, 'table-4');
+  const r = make(); for (let i = 0; i < 4; i++) buy(r, 'tables');
   for (const intent of ['dine-in', 'takeaway']) {
     for (let i = 0; i < CUSTOMERS.queueLimits[intent]; i++) assert.ok(r.admitCustomer(intent));
     assert.equal(r.admitCustomer(intent), null);
@@ -130,17 +149,17 @@ test('30 plazas distintas y espaciadas: rutas reales, muebles futuros reservados
     assert.ok(canStand(clean, r.obstacles));
     assert.ok([...QUEUE_POINTS['dine-in'], ...QUEUE_POINTS.takeaway].every(p => Math.hypot(clean.x - p.x, clean.y - p.y) > 48));
   }
-  assert.equal(new Set(Object.values(CLEANING_WAIT_POINTS).map(p => p.x + ':' + p.y)).size, 4);
+  assert.equal(new Set(Object.values(CLEANING_WAIT_POINTS).map(p => p.x + ':' + p.y)).size, 6);
 });
 
 test('Con filas largas y todas las mesas asignadas, la cabeza para llevar avanza y no se duplica stock', () => {
-  const r = make(); r.options.eatingMs = 1e9; buy(r, 'table-3'); buy(r, 'table-4');
+  const r = make(); r.options.eatingMs = 1e9; for (let i = 0; i < 4; i++) buy(r, 'tables');
   r.production.stock = 10;
   for (let i = 0; i < 8; i++) r.admitCustomer('dine-in');
   for (let i = 0; i < 5; i++) r.admitCustomer('takeaway');
   advance(r, 16000);
   const checkout = INTERACTION_ZONES.find(z => z.id === 'checkout');
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 6; i++) {
     const next = r.offer(checkout).command; assert.ok(next.tableId); r.perform(next); advance(r, 650);
   }
   assert.ok(r.tables.every(t => t.customerId));

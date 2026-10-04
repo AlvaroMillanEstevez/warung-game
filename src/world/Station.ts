@@ -74,8 +74,6 @@ export class Station {
         g.fillStyle(C.green).fillRoundedRect(58, -lift + 22, 20, 22, 3);
         g.fillStyle(C.cream).fillRect(61, -lift + 17, 14, 12);
         g.lineStyle(1, C.wallShade).lineBetween(64, -lift + 20, 73, -lift + 20);
-        const number = scene.add.text(w - 15, d - lift - 13, data.id.slice(-1).padStart(2, '0'), { fontFamily: 'Georgia, serif', fontSize: '12px', color: '#975f3f' }).setOrigin(0.5);
-        this.visual.add(number);
         break;
       }
       case 'bin': {
@@ -98,7 +96,7 @@ export class Station {
     const production = restaurant.production;
     const table = restaurant.table(this.data.id);
     const customer = table?.customerId ? restaurant.customer(table.customerId) : undefined;
-    const slots = production.stove;
+    const slots = production.slotsFor(this.data.id);
     const stoveKey = slots.map(slot => slot.status === 'cooking' ? Math.round(slot.elapsedMs / slot.durationMs * 100) : slot.status).join(',');
     const key = [stoveKey, production.availablePortions,
       table?.cleanliness, customer?.id, customer?.phase].join(':');

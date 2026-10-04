@@ -1,13 +1,13 @@
 # Hoja de ruta
 
-- [x] **Hitos 1–3**: base, controles, cámara, producción, clientes, autoservicio y limpieza. Aprobados manualmente.
-- [x] **Hito 4**: contratación, primeras mejoras, dos mesas adicionales y cooperación. El usuario confirma que contratación, mejoras y compra de mesas funcionan.
-- [x] **Revisión de experiencia y balance**: capacidad y rapidez globales con herencia para nuevas contrataciones; tiempos de acciones iniciadas conservados.
-- [x] **Distribución y demanda**: cuatro espacios regulares, filas paralelas de 20/10 con tramo exterior exclusivo de clientes, 70/30 y aumento único de frecuencia al gastar 300.
-- [x] **Lectura del juego**: dinero y Mejoras como único HUD, DEV oculto, torres exactas reutilizables y comentarios ambientales limitados.
-- [x] **Integración**: reinicio de nuevos estados, pruebas de reglas, escritorio/móvil emulado y documentación.
-- [ ] **Revisión manual de experiencia y balance**: seguir README.md. **Detener aquí el desarrollo.**
-- [ ] **Siguiente hito, sin autorizar**: acordar alcance antes de añadir nuevas funciones o persistencia.
-- [ ] **Experiencia final, sin autorizar**: arte, sonido, equilibrio definitivo y rendimiento en dispositivos físicos.
+- [x] **Hitos 1–4**: controles, producción, autoservicio, contratación, mejoras y cooperación. Aprobados manualmente.
+- [x] **Experiencia y balance**: mejoras globales, torres exactas, comentarios, filas largas y demanda por gasto. Aprobados manualmente.
+- [x] **Cierre del primer local**: seis mesas, dos hornillos, oficina, caja trasera y HUD de dinero. Aprobado manualmente.
+- [x] **Oficina y encuadre**: puerta en pared, alfombra sin obstáculo y zoom anterior ×0,85.
+- [x] **Llegadas y demanda**: primer movimiento efectivo, demora única de 8 s activos y tramos absolutos 0,8/1,2/1,5 por gasto 0/300/600.
+- [x] **Segundo cocinero**: tarjeta única 100/220, requisito de segundo hornillo, máximo dos, mejoras heredadas y asignación fija.
+- [x] **Producción compartida**: objetivo conjunto 12 contando stock, carga cocinada, hornillos y reservas de carga; cancelación y reinicio completos.
+- [x] **Verificación de esta revisión**: pruebas, escritorio/móvil emulado, typecheck, build y documentación.
+- [ ] **Revisión manual de los nuevos ajustes**: seguir README.md. **Detener aquí el desarrollo.**
 
-La ampliación de filas, distribución organizada y demanda por gasto están autorizadas por esta revisión. No sumar otras mejoras, recetas, hornillos, niveles del personal, cajero, tutoriales ni guardado. Sin publicación ni push.
+No están autorizados nuevos locales, recetas, guardado, objetivos finales, más de dos cocineros/una persona de limpieza ni publicación. Precios, ritmos y gráficos provisionales. No hacer push.

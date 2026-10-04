@@ -10,11 +10,11 @@ export class EmployeeView {
   private readonly progress: Phaser.GameObjects.Graphics;
   private readonly label: Phaser.GameObjects.Text;
   constructor(scene: Phaser.Scene, worker: Employee) {
-    const cook = worker.id === 'cook';
+    const cook = worker.role === 'cook';
     const body = scene.add.graphics();
     body.fillStyle(C.greenDark).fillRoundedRect(-10, -12, 8, 14, 3).fillRoundedRect(2, -12, 8, 14, 3);
     body.fillStyle(cook ? C.cream : 0x82afaa).fillRoundedRect(-16, -31, 32, 24, 8);
-    body.fillStyle(cook ? C.gold : C.green).fillRoundedRect(-10, -28, 20, 23, 3);
+    body.fillStyle(cook ? (worker.id === 'cook-2' ? C.coral : C.gold) : C.green).fillRoundedRect(-10, -28, 20, 23, 3);
     body.fillStyle(C.skin).fillCircle(0, -39, 12).fillCircle(-17, -15, 4).fillCircle(17, -15, 4);
     body.fillStyle(C.hair).fillEllipse(0, -47, 26, 13).fillCircle(-4, -39, 1.5).fillCircle(4, -39, 1.5);
     body.fillStyle(cook ? C.cream : 0x82afaa).fillRoundedRect(-14, -54, 28, 9, 4);
@@ -37,7 +37,7 @@ export class EmployeeView {
       g.fillStyle(C.cream).fillRoundedRect(-20, 8, 40, 5, 2);
       g.fillStyle(C.highlight).fillRect(-18, 9, 36 * Math.min(1, progress), 3);
     }
-    this.label.setText(worker.id === 'cook' ? 'Cocinero' : 'Limpieza');
+    this.label.setText(worker.role === 'cook' ? (worker.id === 'cook-2' ? 'Cocinero 2' : 'Cocinero 1') : 'Limpieza');
   }
   destroy(): void { this.visual.destroy(); this.shadow.destroy(); }
 }

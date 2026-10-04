@@ -28,7 +28,7 @@ test('Cuatro posiciones con tiempos independientes; lista sigue ocupada hasta re
     assert.ok(p.perform('start-cooking'));
     p.update(1000);
   }
-  assert.deepEqual(p.stove, [{ status: 'ready' }, { status: 'cooking', elapsedMs: 3000, durationMs: 4000 },
+  assert.deepEqual(p.slotsFor('stove'), [{ status: 'ready' }, { status: 'cooking', elapsedMs: 3000, durationMs: 4000 },
     { status: 'cooking', elapsedMs: 2000, durationMs: 4000 }, { status: 'cooking', elapsedMs: 1000, durationMs: 4000 }]);
   p.perform('take-ingredients');
   assert.equal(p.perform('start-cooking', 0), null);

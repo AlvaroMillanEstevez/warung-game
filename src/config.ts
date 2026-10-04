@@ -1,11 +1,11 @@
 // World units never change with the screen size. The viewport and camera adapt.
-export const WORLD = { width: 880, height: 650 } as const;
-export const ROOM = { x: 64, y: 144, width: 752, height: 456 } as const;
+export const WORLD = { width: 960, height: 830 } as const;
+export const ROOM = { x: 64, y: 144, width: 832, height: 636 } as const;
 export const PLAYER = {
   speed: 185,
   halfWidth: 10,
   halfHeight: 7,
-  spawn: { x: 378, y: 565 },
+  spawn: { x: 378, y: 735 },
   maxFrameSeconds: 0.1,
   collisionStep: 4,
 } as const;
@@ -22,6 +22,7 @@ export const CARGO_FEEDBACK = { durationMs: 650, rise: 14 } as const;
 export const CAMERA = {
   viewSize: { width: 788, height: 554 }, // Framing scale, not movement or camera bounds.
   minimumZoom: 1.15,
+  zoomMultiplier: 0.85,
   headOffset: 24,
 } as const;
 export const COLORS = {
@@ -34,7 +35,10 @@ export const COLORS = {
   skin: 0xd9996c, hair: 0x423326, highlight: 0x428b68,
 } as const;
 
-export const DEMAND = { spendingThreshold: 300, frequencyMultiplier: 1.5 } as const;
+export const DEMAND = {
+  firstArrivalDelayMs: 8000,
+  tiers: [{ spending: 0, frequency: 0.8 }, { spending: 300, frequency: 1.2 }, { spending: 600, frequency: 1.5 }],
+} as const;
 export const COMMENTS = {
   thresholdMinMs: 10000, thresholdMaxMs: 15000, checkIntervalMs: 1000,
   participationChance: 0.65, durationMs: 2500, cooldownMs: 20000, maxVisible: 2,
@@ -43,12 +47,12 @@ export const COMMENTS = {
 export const DEBUG = { customerMarkers: false } as const;
 export const STAFF = { speed: 110, cookStockTarget: 12 } as const;
 export const UPGRADES = {
-  cook: { prices: [100] },
+  cook: { prices: [100, 220] },
   cleaner: { prices: [80] },
   transport: { prices: [60, 120], capacities: [8, 12, 16] },
   actionSpeed: { prices: [80, 160], durationsMs: [1500, 1200, 900] },
   stoveSpeed: { prices: [100, 200], durationsMs: [4000, 3000, 2000] },
-  'table-3': { prices: [80] },
-  'table-4': { prices: [140] },
+  tables: { prices: [80, 140, 220, 320] },
+  stove: { prices: [180] },
 } as const;
 export type UpgradeId = keyof typeof UPGRADES;

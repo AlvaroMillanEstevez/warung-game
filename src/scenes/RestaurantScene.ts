@@ -9,7 +9,7 @@ import { DebugPanel } from '../ui/DebugPanel';
 import { Restaurant, actionKey } from '../simulation/Restaurant';
 import type { RestaurantAction } from '../simulation/Restaurant';
 import { DwellInteraction } from '../simulation/DwellInteraction';
-import { closestZone } from '../world/interaction';
+import { canInteract, closestZone } from '../world/interaction';
 import type { InteractionZone } from '../world/layout';
 import { frameRestaurant } from '../world/camera';
 import { drawExterior, drawRoom } from '../world/room';
@@ -34,6 +34,7 @@ export class RestaurantScene extends Phaser.Scene {
   private messageRemainingMs = 0;
   private lastContext = '';
   private discardNextDelta = true;
+  private officeNeedsExit = false;
   private get obstacles() { return this.restaurant.obstacles; }
   private readonly moneyElement = document.querySelector<HTMLElement>('#money-status')!;
   private readonly resetButton = document.querySelector<HTMLButtonElement>('#reset-test')!;
@@ -41,7 +42,7 @@ export class RestaurantScene extends Phaser.Scene {
   constructor() { super('Restaurant'); }
 
   create(): void {
-    this.restaurant.reset();
+    this.restaurant.reset(); this.officeNeedsExit = false;
     this.exterior = this.add.graphics().setDepth(-200);
     drawRoom(this);
     this.syncLayout();
@@ -87,11 +88,16 @@ export class RestaurantScene extends Phaser.Scene {
     this.messageRemainingMs = Math.max(0, this.messageRemainingMs - activeDelta);
     this.notice.setVisible(this.messageRemainingMs > 0);
     this.restaurant.update(activeDelta);
+    const beforeMovement = { ...this.player.position };
     this.player.update(this.controls.movement, activeDelta, this.obstacles);
+    this.restaurant.playerMoved(beforeMovement, this.player.position);
     this.selected = closestZone(this.player.position, this.restaurant.interactionZones, this.obstacles);
     if (this.pending && (this.pending.zoneId !== this.selected?.id || this.controls.tryingToMove ||
         this.restaurant.validate(this.pending.command))) this.cancelInteraction();
-    if (!this.pending && this.selected && !this.controls.tryingToMove) {
+    const inside = this.restaurant.interactionZones.filter(zone => canInteract(this.player.position, zone, this.obstacles)).map(zone => zone.id);
+    if (!inside.includes('office')) this.officeNeedsExit = false;
+    const office = this.selected?.role === 'office';
+    if (!this.pending && this.selected && !office && !this.controls.tryingToMove) {
       const offer = this.restaurant.offer(this.selected);
       if (offer.command && this.restaurant.beginAction(offer.command))
         this.pending = { zoneId: this.selected.id, command: offer.command };
@@ -101,12 +107,14 @@ export class RestaurantScene extends Phaser.Scene {
     }
     if (!this.selected) this.lastContext = '';
     const valid = this.pending && !this.restaurant.validate(this.pending.command);
-    const inside = this.restaurant.interactionZones.filter(zone =>
-      Math.hypot(this.player.position.x - zone.position.x, this.player.position.y - zone.position.y) <= INTERACTION.radius).map(zone => zone.id);
     const completed = this.dwell.update(
-      this.selected ? { id: this.selected.id, action: valid ? actionKey(this.pending!.command) : null } : null,
+      this.selected ? { id: this.selected.id, action: office && !this.officeNeedsExit ? 'open-upgrades' : valid ? actionKey(this.pending!.command) : null } : null,
       inside, this.controls.tryingToMove, activeDelta, this.restaurant.teamActionMs,
     );
+    if (completed === 'open-upgrades') {
+      this.officeNeedsExit = true;
+      this.upgrades.open(); this.renderState(); return;
+    }
     if (completed && this.pending) {
       const before = this.restaurant.production.inventory;
       const command = this.pending.command, result = this.restaurant.perform(command);
@@ -135,7 +143,7 @@ export class RestaurantScene extends Phaser.Scene {
   private readonly resetTest = (): void => {
     this.upgrades.close(); this.debug.close(); this.controls.reset(); this.restaurant.reset();
     this.syncLayout(); this.player.clearFeedback(); this.dwell.reset();
-    this.pending = null; this.selected = null; this.lastContext = ''; this.discardNextDelta = true;
+    this.pending = null; this.selected = null; this.lastContext = ''; this.discardNextDelta = true; this.officeNeedsExit = false;
     this.messageRemainingMs = 0; this.notice.setVisible(false);
     Object.assign(this.player.position, PLAYER.spawn);
     this.player.update({ x: 0, y: 0 }, 0, this.obstacles);
