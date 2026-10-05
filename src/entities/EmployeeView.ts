@@ -17,7 +17,7 @@ export class EmployeeView {
     this.cargo = new CargoView(scene);
     this.progress = scene.add.graphics();
     const badge = localizedLabel(scene, -21, worker.id === 'cook-2' ? -100 : -80,
-      worker.role === 'cook' ? { key: 'staff.cook', params: { number: worker.id === 'cook-2' ? 2 : 1 } } : 'staff.cleaner', 10, C.greenDark, 90)
+      worker.role === 'cook' ? { key: 'staff.cook', params: { number: worker.id === 'cook-2' ? 2 : 1 } } : worker.role === 'cashier' ? 'staff.cashier' : 'staff.cleaner', 10, C.greenDark, 90)
       .setStyle({ backgroundColor: cssColor(C.cream), padding: { x: 5, y: 3 } }).setOrigin(1, 1);
     this.visual = scene.add.container(worker.position.x, worker.position.y, [this.body.visual, this.cargo.visual, this.progress, badge]);
     this.shadow = scene.add.graphics().setDepth(V.depth.groundShadow); softShadow(this.shadow, 0, 2, 29, 11);

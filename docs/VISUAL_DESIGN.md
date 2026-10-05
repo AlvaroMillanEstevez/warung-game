@@ -1,6 +1,6 @@
 # Dirección visual — primera renovación
 
-2026-10-04. Reglas y balance aprobados manualmente. Renovación visual aprobada manualmente. La entrega posterior añade idiomas sin cambiar esta dirección.
+2026-10-04. Reglas y balance aprobados manualmente. Renovación visual aprobada manualmente. Idiomas y base aprobados. El experimento posterior añade tablón, empaquetado y cajero conservando esta dirección.
 
 ## Restaurante de juguete
 
@@ -16,7 +16,7 @@ La alfombra anterior estaba bajo el punto inicial del jugador, alejada de la ent
 
 El subtítulo anterior estaba centrado en y114; su parte inferior coincidía con la franja verde que empezaba en y115. **Diagnóstico: posición y contraste**, no máscara ni contenedor. Ambos textos ya tenían profundidad -90 frente a la pared -100: no era necesario poner textos encima de todo.
 
-Ahora las dos líneas caben en una placa mural propia (WALL_SIGN), con contraste verde oscuro sobre crema. Siguen en la capa de pared/suelo. La excepción previa del marcador de Caja por encima del mostrador se conserva solo para ese punto funcional. En móvil el rótulo puede salir del encuadre al alejarse: la cámara mantiene seguimiento y zoom aprobados.
+Ahora las dos líneas caben en una placa mural propia (WALL_SIGN), con contraste verde oscuro sobre crema. Siguen en la capa de pared/suelo. El marcador de Caja (símbolo, rótulo y barra) se eleva 100 unidades visuales, por encima del personaje, con una marca en el punto de suelo para separarlo del decorado; su punto físico queda idéntico. Tablón, retirada y empaquetado también usan señales legibles sobre su mobiliario, sin elevar todos los textos. En móvil el rótulo puede salir del encuadre al alejarse: la cámara mantiene seguimiento y zoom aprobados.
 
 ## Mobiliario y personajes
 
@@ -34,8 +34,14 @@ Cocción: wok y vapor más barra. Lista: plato y marca de verificación. Sucia: 
 
 ## Interfaz y coste visual
 
-HUD permanente únicamente dinero. Panel con título, estado escrito, nombre/efecto y precio separados. Disponible, falta de saldo, requisito pendiente y completado tienen texto y tratamiento distintos. Cabecera fija con Cerrar de 46 px, visible al desplazar la lista en móvil. Oficina, pausa y protección de compras se mantienen.
+HUD permanente únicamente dinero; durante un encargo activo se suma una tarjeta compacta con plato/progreso y bonus, respetando áreas seguras y sin capturar movimiento. Panel con título, estado escrito, nombre/efecto y precio separados. Disponible, falta de saldo, requisito pendiente y completado tienen texto y tratamiento distintos. Cabecera fija con Cerrar de 46 px, visible al desplazar la lista en móvil. Oficina, pausa y protección de compras se mantienen.
 
 Mobiliario y piezas de personajes se construyen al crear sus vistas. Gráficos de carga se reutilizan sin redibujar cantidades iguales; estados de cocina/progreso cambian por escalones visuales pequeños. Marcha usa transformaciones de piezas. Sin motor 3D, assets externos, nuevas dependencias, audio ni reglas añadidas.
+
+## Ampliación provisional: encargos
+
+Tablón pequeño de corcho/madera con hoja y chincheta en la pared del fondo. Una exclamación discreta identifica la oferta; una flecha señala empaquetado hasta completar el primer encargo. Mesa compacta junto al tablón, con cinta y caja abierta que dibuja las raciones empaquetadas y muestra contador/barra. Se vacía al completar, cancelar o reiniciar. Las piezas se reutilizan y redibujan cuando cambia estado, nunca por cada frame.
+
+Cajero con delantal coral, pajarita y placa, situado detrás del mostrador; sin carga inventada. Panel del tablón comparte colores y cabecera fija con oficina. Traducciones largas fluyen y permiten desplazamiento vertical, con cierre accesible.
 
 Ver comprobaciones actuales en [VERIFICATION.md](VERIFICATION.md) y localización en [LOCALIZATION.md](LOCALIZATION.md). Arte provisional aprobado; no producir assets definitivos sin nueva petición.

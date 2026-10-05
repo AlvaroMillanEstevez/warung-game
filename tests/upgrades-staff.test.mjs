@@ -74,13 +74,13 @@ test('Mejorar conserva cocción y permanencia iniciadas; siguientes ciclos usan 
   p.update(1); assert.equal(p.slotsFor('stove')[2].status, 'ready'); assert.equal(p.slotsFor('stove')[0].status, 'cooking');
   p.update(1000); assert.equal(p.stoveSummary.ready, 3);
   const d = new DwellInteraction(), target = { id: 'fridge', action: 'take' };
-  d.update(target, ['fridge'], false, 1000, r.teamActionMs);
+  d.update(target, ['fridge'], false, 500, r.teamActionMs);
   buy(r, 'actionSpeed'); buy(r, 'actionSpeed');
-  assert.equal(d.update(target, ['fridge'], false, 499, r.teamActionMs), null);
+  assert.equal(d.update(target, ['fridge'], false, 299, r.teamActionMs), null);
   assert.equal(d.update(target, ['fridge'], false, 1, r.teamActionMs), 'take');
-  assert.equal(d.update(target, ['fridge'], false, 899, r.teamActionMs), null);
+  assert.equal(d.update(target, ['fridge'], false, 399, r.teamActionMs), null);
   assert.equal(d.update(target, ['fridge'], false, 1, r.teamActionMs), 'take');
-  assert.equal(UPGRADES.actionSpeed.durationsMs[0], 1500); assert.equal(r.options.eatingMs, 6000); assert.equal(r.options.speed, 90);
+  assert.equal(UPGRADES.actionSpeed.durationsMs[0], 800); assert.equal(r.options.eatingMs, 6000); assert.equal(r.options.speed, 90);
 });
 
 test('Mesas compradas: huella, destinos, rutas y seguridad de colocación con actores presentes', () => {
@@ -90,7 +90,7 @@ test('Mesas compradas: huella, destinos, rutas y seguridad de colocación con ac
   const before = r.money;
   assert.equal(r.purchase('tables', 0, occupied), false); assert.equal(r.money, before);
   buy(r, 'tables'); buy(r, 'tables');
-  assert.equal(r.tables.length, 4); assert.equal(r.obstacles.length, 8);
+  assert.equal(r.tables.length, 4); assert.equal(r.obstacles.length, 9);
   const work = [...r.interactionZones.map(z => z.position), ...Object.values(STAFF_POSITIONS), PLAYER.spawn];
   const publicPoints = [...Object.values(TABLE_POSITIONS).map(t => t.seat), ...Object.values(CLEANING_WAIT_POINTS),
     ...Object.values(CUSTOMER_LAYOUT), ...Object.values(QUEUE_POINTS).flat()];
@@ -269,9 +269,9 @@ test('Invalidación y ruta imposible liberan reservas; reinicio restaura todo el
   r.update(50); assert.equal(r.activeReservations.has('table:table-2'), false);
   r.reset();
   assert.equal(r.staff.employees.length + r.activeReservations.size + r.money + r.elapsedMs, 0);
-  assert.equal(r.tables.length, 2); assert.equal(r.obstacles.length, 6);
+  assert.equal(r.tables.length, 2); assert.equal(r.obstacles.length, 7);
   assert.deepEqual(r.production.inventory.limits, { ingredients: 8, meals: 8, waste: 8 });
-  assert.equal(r.teamActionMs, 1500); assert.equal(r.production.cookingMs, 4000);
+  assert.equal(r.teamActionMs, 800); assert.equal(r.production.cookingMs, 4000);
   assert.equal(r.production.availablePortions, 0); assert.equal(r.production.stoveSummary.empty, 4);
   for (const id of Object.keys(UPGRADES)) assert.equal(r.upgradeLevel(id), 0);
   assert.equal(r.validate({ kind: 'clean', tableId: 'table-3' }), 'reason.tableAlreadyClean');

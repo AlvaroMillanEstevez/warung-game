@@ -1,6 +1,6 @@
 # Localización es / en / id
 
-2026-10-05. La renovación visual anterior está aprobada manualmente. Se añade localización sin modificar reglas, balance, controles, cámara ni guardado de partida.
+2026-10-05. La localización base está aprobada manualmente. Se amplían los mismos catálogos para cajero y encargos, sin biblioteca nueva ni guardado de partida.
 
 ## Catálogos para revisión
 
@@ -10,21 +10,21 @@
 | English | [src/i18n/catalogs/en.ts](../src/i18n/catalogs/en.ts) |
 | Bahasa Indonesia | **[src/i18n/catalogs/id.ts](../src/i18n/catalogs/id.ts)** |
 
-Hay 122 claves estables en cada catálogo. Inglés define el tipo Key; español e indonesio deben satisfacer el mismo conjunto mediante TypeScript. Una prueba comprueba igualdad de claves, textos no vacíos y los mismos parámetros por traducción. No se añadió una biblioteca de idiomas ni se usan servicios externos.
+Hay 176 claves estables en cada catálogo. Inglés define el tipo Key; español e indonesio deben satisfacer el mismo conjunto mediante TypeScript. Una prueba comprueba igualdad de claves, textos no vacíos y los mismos parámetros por traducción. No se añadió una biblioteca de idiomas ni se usan servicios externos.
 
 Para revisar el indonesio con una hablante nativa:
 
 1. Editar solo el texto a la derecha de cada clave en id.ts, conservando comillas y estructura.
 2. Mantener marcadores como {count}, {price}, {capacity}, {slots} y {seconds}; pueden cambiar de posición en la frase. Los números se formatean automáticamente.
 3. Mantener Warung Kita y nasi goreng. Los nombres del selector se muestran siempre en su idioma nativo. El rótulo cultural Selamat datang permanece en la alfombra.
-4. Revisar especialmente station.*, effect.*, reason.* y comment.* en el contexto del juego. Los comentarios deben ser breves y amistosos; no implican paciencia ni penalizaciones.
+4. Revisar especialmente bulk.*, station.*, effect.*, reason.* y comment.* en el contexto del juego. Los comentarios deben ser breves y amistosos; no implican paciencia ni penalizaciones.
 5. Ejecutar npm test y npm run typecheck; comprobar la oficina y bocadillos en 320/390 px y horizontal. No modificar claves para corregir una traducción.
 
 Las traducciones están redactadas e integradas, pero no se presentan como revisadas por una hablante nativa.
 
 ## Textos incluidos
 
-Panel de oficina completo: cabecera, selector, saldo, nombre/efecto/nivel/siguiente mejora, precio, estado, requisitos, máximos, confirmaciones y compra rechazada. También dinero del HUD, avisos de pausa y demanda, límites de carga, problemas de acción, feedback de transferencias, rótulos de estaciones y filas, profesiones, comentarios de clientes, subtítulo mural, título/descripción de página y etiquetas de accesibilidad. Título y botones de DEV incluidos.
+Panel de oficina completo: cabecera, selector, saldo, nombre/efecto/nivel/siguiente mejora, precio, estado, requisitos, máximos, confirmaciones y compra rechazada. También dinero del HUD, avisos de pausa y demanda, límites de carga, problemas de acción, feedback de transferencias, rótulos de estaciones y filas, profesiones, comentarios de clientes, subtítulo mural, título/descripción de página y etiquetas de accesibilidad. Título y botones de DEV incluidos. La ampliación añade contratación/requisitos del cajero, señales funcionales, tablón, ofertas, cantidades, base/bonus/plazo, tarjeta de progreso, empaquetado, objetivo, confirmación/devolución al cancelar y celebración de entrega.
 
 Excepciones: Warung Kita, nasi goreng y Selamat datang decorativo. El volcado de datos de DEV conserva sus nombres de campo, IDs, estados y claves de mensaje como datos técnicos; los errores de invariantes dirigidos a la consola tampoco son mensajes de juego. No hay instrucciones de juego sin traducir.
 
@@ -42,8 +42,8 @@ No se usa ubicación, IP ni zona horaria. Detectar un idioma no escribe una pref
 - El selector actualiza documento y panel, rótulos de Phaser, feedback, avisos y bocadillos ya visibles. Se conserva su duración restante; no se reinician relojes ni se muta la simulación.
 - localizedLabel actualiza setText y regenera la textura de texto de Phaser. Rótulos estrechos admiten ancho máximo. No hay texto funcional incrustado en imágenes descargadas o texturas estáticas.
 - Cada etiqueta retira su suscripción al destruirse; panel y escena también la liberan. No se reconstruye el restaurante al cambiar de idioma.
-- La cabecera conserva Cerrar fijo; las tarjetas y controles permiten saltos de línea en móvil. HUD sigue mostrando únicamente dinero.
+- La cabecera conserva Cerrar fijo; las tarjetas y controles permiten saltos de línea en móvil. HUD mantiene dinero y añade una tarjeta compacta solo durante un encargo activo.
 
 ## Verificación y límites
 
-Resultados, capturas y tamaños en [VERIFICATION.md](VERIFICATION.md). El navegador emulado no acredita comodidad en teléfono físico. Pendiente revisión lingüística humana, especialmente indonesio. Sin publicación ni push.
+Resultados, capturas y tamaños en [VERIFICATION.md](VERIFICATION.md). El navegador emulado no acredita comodidad en teléfono físico. La base tiene aprobación manual del usuario; las nuevas traducciones de encargos se ofrecen para revisión lingüística, especialmente indonesio. Sin publicación ni push.

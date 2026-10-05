@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 import type { Point } from '../world/layout';
 import { PALETTE as C, VISUAL as V, CHARACTER_COLORS } from './theme';
-export type CharacterRole = 'player' | 'cook' | 'cleaner' | 'customer';
+export type CharacterRole = 'player' | 'cook' | 'cleaner' | 'cashier' | 'customer';
 
 // Parts are drawn once. Walking moves only visual joints, never the simulation position.
 export class CharacterArt {
@@ -16,7 +16,7 @@ export class CharacterArt {
     const customer = role === 'customer', cook = role === 'cook', cleaner = role === 'cleaner';
     const skin = CHARACTER_COLORS.skins[variant % 4]!;
     const shirt = customer ? CHARACTER_COLORS.shirts[variant % 4]! : cleaner ? C.greenLight : C.cream;
-    const apron = cleaner ? C.greenDark : role === 'player' ? C.green : variant === 1 ? C.coral : C.gold;
+    const apron = role === 'cashier' ? C.coral : cleaner ? C.greenDark : role === 'player' ? C.green : variant === 1 ? C.coral : C.gold;
     this.legs = [-1, 1].map(side => {
       const g = scene.add.graphics().setPosition(side * 6, -7);
       g.fillStyle(customer ? C.woodDark : C.greenDark).fillRoundedRect(-4, -6, 8, 13, 4);
@@ -41,6 +41,9 @@ export class CharacterArt {
       if (role === 'player') {
         // Owner: rolled sleeves, short apron and a tied headband, distinct from staff hats.
         body.fillStyle(C.coral).fillTriangle(-6, -33, 6, -33, 0, -26);
+      } else if (role === 'cashier') {
+        body.fillStyle(C.greenDark).fillTriangle(-6, -32, 0, -28, -6, -25).fillTriangle(6, -32, 0, -28, 6, -25);
+        body.fillStyle(C.cream).fillRoundedRect(2, -22, 7, 5, 1);
       } else if (cook) {
         for (const x of [-5, 5]) body.fillStyle(C.woodDark).fillCircle(x, -29, 1);
       } else {

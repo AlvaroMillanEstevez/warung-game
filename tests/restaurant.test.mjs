@@ -168,7 +168,7 @@ test('Caja continua llena 8/8/8; sin stock no acumula tiempo y al reponer inicia
   for (let i = 0; i < 200; i++) tick(50);
   assert.equal(r.money, 20); assert.equal(d.progress, 0);
   assert.deepEqual(r.production.inventory, before);
-  r.production.perform('store-meal'); tick(1499); assert.equal(r.money, 20);
+  r.production.perform('store-meal'); tick(799); assert.equal(r.money, 20);
   tick(1); assert.equal(r.money, 30);
 });
 
@@ -233,7 +233,9 @@ test('Rutas y puntos de espera libres; movimiento respeta muebles y velocidad, t
     assert.ok(canStand(z.position, obstacles)); assert.equal(closestZone(z.position, INTERACTION_ZONES, obstacles), z);
   }
   const counter = INTERACTION_ZONES.filter(z => z.stationId === 'counter');
-  assert.equal(counter.length, 2);
+  assert.equal(counter.length, 3);
+  for (const a of counter) for (const b of counter) if (a !== b)
+    assert.ok(Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y) > 2 * INTERACTION.radius);
   assert.ok(Math.hypot(counter[0].position.x - counter[1].position.x, counter[0].position.y - counter[1].position.y) > 2 * INTERACTION.radius);
   const r = make({ eatingMs: 500 }); stock(r, 4);
   for (const intent of ['dine-in', 'takeaway', 'dine-in', 'takeaway']) r.admitCustomer(intent);

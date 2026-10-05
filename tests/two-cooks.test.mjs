@@ -38,7 +38,7 @@ test('Segundo cocinero: requisito operativo, precio, descuento único, máximo d
     assert.deepEqual(worker.inventory.state.limits, { ingredients: 12, meals: 12 });
   }
   buy(r, 'transport'); buy(r, 'actionSpeed');
-  until(r, () => r.staff.employees.every(w => w.task?.durationMs === 900));
+  until(r, () => r.staff.employees.every(w => w.task?.durationMs === 400));
   for (const worker of r.staff.employees) assert.deepEqual(worker.inventory.state.limits, { ingredients: 16, meals: 16 });
   assert.deepEqual(r.staff.employees.map(w => w.assignedStove), ['stove', 'stove-2']);
 });

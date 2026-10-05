@@ -9,7 +9,7 @@ export const PLAYER = {
   maxFrameSeconds: 0.1,
   collisionStep: 4,
 } as const;
-export const INTERACTION = { radius: 48, dwellMs: 1500, messageDuration: 3200 } as const;
+export const INTERACTION = { radius: 48, dwellMs: 800, panelDwellMs: 1500, messageDuration: 3200 } as const;
 export const PRODUCTION = { cookingMs: 4000, stoveSlots: 4, inventory: { ingredients: 8, meals: 8, waste: 8 } } as const;
 export const CUSTOMERS = {
   arrivalMs: 8000, dineInChance: 0.7, maxCustomers: 48,
@@ -36,13 +36,17 @@ export const COMMENTS = {
   participationChance: 0.65, durationMs: 2500, cooldownMs: 20000, maxVisible: 2,
   phrases: ['comment.hungry', 'comment.wait', 'comment.queue', 'comment.worth'],
 } as const;
+export const BULK_ORDERS = {
+  firstQuantity: 6, quantities: [6, 8, 10], bonusRatio: .5, bonusMs: 90000, nextOfferMs: 45000,
+} as const;
 export const DEBUG = { customerMarkers: false } as const;
 export const STAFF = { speed: 110, cookStockTarget: 12 } as const;
 export const UPGRADES = {
   cook: { prices: [100, 220] },
   cleaner: { prices: [80] },
+  cashier: { prices: [150] },
   transport: { prices: [60, 120], capacities: [8, 12, 16] },
-  actionSpeed: { prices: [80, 160], durationsMs: [1500, 1200, 900] },
+  actionSpeed: { prices: [80, 160], durationsMs: [800, 600, 400] },
   stoveSpeed: { prices: [100, 200], durationsMs: [4000, 3000, 2000] },
   tables: { prices: [80, 140, 220, 320] },
   stove: { prices: [180] },

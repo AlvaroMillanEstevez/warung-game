@@ -1,6 +1,6 @@
 # Warung Kita
 
-Prototipo de gestión de un warung para navegador. Hitos 1–4, revisión de experiencia y cierre del primer local aprobados manualmente. Oficina, cámara, demanda y segundo cocinero también aprobados manualmente. **Renovación visual aprobada manualmente. Localización en español, inglés e indonesio implementada.**
+Prototipo de gestión de un warung para navegador. Hitos 1–4, revisión de experiencia y cierre del primer local aprobados manualmente. Oficina, cámara, demanda y segundo cocinero también aprobados manualmente. **Renovación visual y localización aprobadas manualmente. Experimento de cajero y encargos implementado, pendiente de revisión manual.**
 
 ## Ejecutar desde WSL
 
@@ -32,7 +32,7 @@ En la oficina, el selector **Español / English / Bahasa Indonesia** cambia todo
 
 Al iniciar: elección guardada válida, luego idiomas del navegador en orden (es-ES, en-US, id-ID y otras variantes), y finalmente inglés. No se utiliza ubicación ni zona horaria. Números con formato del idioma elegido.
 
-Catálogos revisables: [español](src/i18n/catalogs/es.ts), [inglés](src/i18n/catalogs/en.ts) e **[indonesio](src/i18n/catalogs/id.ts)**. Conservan las mismas 122 claves y parámetros. Para revisión con una hablante nativa, cambiar solo los valores de id.ts y mantener claves y marcadores entre llaves. Guía en [LOCALIZATION.md](docs/LOCALIZATION.md).
+Catálogos revisables: [español](src/i18n/catalogs/es.ts), [inglés](src/i18n/catalogs/en.ts) e **[indonesio](src/i18n/catalogs/id.ts)**. Conservan las mismas 176 claves y parámetros. Para revisión con una hablante nativa, cambiar solo los valores de id.ts y mantener claves y marcadores entre llaves. Guía en [LOCALIZATION.md](docs/LOCALIZATION.md).
 
 Panel, estados de compra, requisitos, efectos, confirmaciones, avisos, comentarios, rótulos funcionales, filas, nombres de profesiones, feedback de carga, dinero y accesibilidad están localizados. Warung Kita, nasi goreng y la alfombra cultural Selamat datang se conservan. Datos/identificadores internos de DEV y errores de programación de consola siguen siendo diagnósticos técnicos; sus botones y título sí se traducen.
 
@@ -50,14 +50,15 @@ Una venta cobra 10 y entrega directamente una ración. Comer dentro reserva mesa
 
 ## Oficina y compras
 
-La **Oficina** está integrada en la pared izquierda. Su alfombra interior tiene el indicador de interacción. Permanece allí para abrir Mejoras; no hay mueble que bloquee el paso ni otra habitación. El panel pausa todo y cancela entradas. Tras cerrarlo debes salir de la zona y volver para reabrir.
+La **Oficina** está integrada en la pared izquierda. Su alfombra interior tiene el indicador de interacción. Permanece 1,5 s allí para abrir Mejoras; no hay mueble que bloquee el paso ni otra habitación. El panel pausa todo y cancela entradas. Tras cerrarlo debes salir de la zona y volver para reabrir.
 
 | Compra | Efecto | Precio |
 | --- | --- | --- |
 | Contratar cocinero | Máximo dos; segundo requiere primero y segundo hornillo operativo | 100 / 220 |
 | Limpieza | Una persona para mesas y residuos | 80 |
+| Cajero | Uno; requiere primer cocinero; comparte caja con el jugador | 150 |
 | Capacidad del equipo | 8 → 12 → 16 por categoría aplicable | 60 / 120 |
-| Rapidez del equipo | 1,5 → 1,2 → 0,9 s por acción | 80 / 160 |
+| Rapidez del equipo | 0,8 → 0,6 → 0,4 s por acción | 80 / 160 |
 | Cocina más rápida | Nuevas cocciones: 4 → 3 → 2 s en ambos hornillos | 100 / 200 |
 | Añadir mesa | Cuatro compras sucesivas: 2 → 6 mesas | 80 / 140 / 220 / 320 |
 | Añadir hornillo | Una compra: 1 → 2, cuatro posiciones cada uno | 180 |
@@ -74,9 +75,21 @@ Con un cocinero, puede usar ambos hornillos. Con dos, **Cocinero 1** (delantal a
 
 El objetivo **conjunto de 12 raciones** cuenta stock del mostrador, platos transportados por cocineros, raciones cocinando/listas de ambos hornillos y reservas de cargas automáticas pendientes. No cuenta ingredientes ni duplica raciones. Reservar capacidad al comenzar el viaje evita que ambos reclamen la última unidad. Cancelar o invalidar libera capacidad y posición.
 
-Al alcanzar el objetivo dejan de iniciar cocciones, pero recogen y depositan las ya producidas, incluidos lotes parciales. Reanudan tras ventas y conservan ingredientes sobrantes. La producción manual no tiene este límite y puede superar 12.
+Al alcanzar el objetivo dejan de iniciar cocciones, pero recogen y depositan las ya producidas, incluidos lotes parciales. Reanudan tras ventas o retiradas de stock y conservan ingredientes sobrantes. La producción manual no tiene este límite y puede superar 12.
 
-Limpieza prioriza reservas antiguas y después suciedad antigua. Vacía residuos cuando se llena o no queda tarea, aunque lleve uno. Ningún empleado cobra ni reparte.
+Limpieza prioriza reservas antiguas y después suciedad antigua. Vacía residuos cuando se llena o no queda tarea, aunque lleve uno. El cajero cobra desde su puesto trasero; jugador y cajero comparten una única operación. Quien la inicia puede terminarla y cada cliente paga/recibe una vez. Ningún empleado reparte.
+
+## Encargos voluntarios
+
+El primer cocinero desbloquea el tablón del fondo, junto al empaquetado entre frigorífico y hornillo. Permanece 1,5 s para abrirlo: pausa todo y exige salir/volver tras cerrar. Primera oferta: 6 nasi goreng; siguientes: 6, 8 o 10. Solo una oferta o encargo a la vez. No caduca antes de aceptar ni aparta comida automáticamente.
+
+Pago base: cantidad × 10. Bonificación del 50 % si completas en 90 s activos desde aceptar. Al agotarse el reloj puedes entregar por la base. Tras completar o cancelar, otra oferta llega a los 45 s activos. Valores provisionales en src/config.ts.
+
+Lleva platos directamente del hornillo o recógelos en **Retirar platos**, a la derecha del mostrador. Retira una unidad por ciclo mientras falten raciones, descontando las que ya transportas y respetando capacidad. Compite por el mismo stock que las ventas y activa la reposición normal de los cocineros. **Empaquetar** transfiere una por ciclo; muestra una caja con progreso y paga automáticamente al completar. Los sobrantes siguen contigo.
+
+Cancelar desde el tablón pide confirmación: devuelve lo empaquetado al stock exactamente una vez, conserva platos transportados y no cambia dinero. El objetivo «Completa tu primer encargo» es opcional y no añade recompensa. La tarjeta de HUD solo aparece con un encargo activo. Oficina, tablón, DEV y pestaña oculta congelan los relojes.
+
+Recorrido de evaluación y reglas detalladas en **[ENCARGOS.md](docs/ENCARGOS.md)**. Incluye probar reparto de stock con ventas del cajero, entregar tarde y cancelar. Es un experimento para revisar; no presupone una mejora de retención.
 
 ## Inicio y demanda
 
@@ -120,17 +133,17 @@ Los tests preparan fondos y estados de ocupación para casos concretos; no hay d
 - Acércate al fondo para leer las dos líneas del rótulo y a la entrada de clientes para comprobar la alfombra.
 - Observa wok/vapor y progreso, plato con marca de listo, mesa con restos y exclamación.
 - Comprueba cargas máximas de ingredientes, platos y residuos; las tres torres tienen cantidades exactas y no tapan el rostro ni los avisos propios.
-- Prueba Oficina, comprar y desplazar la lista en móvil: Cerrar debe quedar visible. El HUD sigue siendo solo dinero.
+- Prueba Oficina, comprar y desplazar la lista en móvil: Cerrar debe quedar visible. El HUD mantiene dinero y solo añade la tarjeta durante un encargo activo.
 - Alterna vertical/horizontal y recorre estaciones con teclado o arrastre; el encuadre y la respuesta son los aprobados.
 
 Capturas y límites de verificación en [VERIFICATION.md](docs/VERIFICATION.md). Las vistas generales de documentación usan un encuadre de prueba para enseñar el local completo; las móviles conservan la cámara del juego.
 
 ## Organización y límites
 
-Configuración en src/config.ts; distribución en src/world/layout.ts. Restaurant coordina compras, clientes, mesas, dinero y reservas, incluida capacidad de producción. Production realiza transferencias y cocina; Staff mantiene dos profesiones y sus identidades. Reglas independientes de Phaser/DOM; sin sistemas genéricos ni framework adicional.
+Configuración en src/config.ts; distribución en src/world/layout.ts. Restaurant coordina compras, clientes, mesas, dinero y reservas, incluida capacidad de producción. Production realiza transferencias y cocina; Staff mantiene cocineros, limpieza y cajero con identidades fijas; BulkOrders conserva oferta/activo/espera y el único objetivo introductorio. Reglas independientes de Phaser/DOM; sin sistemas genéricos ni framework adicional.
 
 Consulta [diseño](docs/GAME_DESIGN.md), [roadmap](docs/ROADMAP.md) y [verificación](docs/VERIFICATION.md).
 
 Arte, precios y demanda provisionales. Sin guardado de partida; recargar empieza de cero y solo conserva el idioma. Personajes pueden cruzarse. Delta activo máximo 100 ms: por debajo de 10 FPS avanza más despacio. Continúa el aviso del bundle de Phaser. Móvil emulado no acredita comodidad en teléfono físico; pendientes otros navegadores y balance manual.
 
-**Detener para revisión de traducciones.** Sin nuevos locales, recetas, guardado de partida, objetivos finales, más personal, publicación ni push.
+**Detener para revisión manual del experimento.** Pendientes sin implementar: nuevas recetas, frigoríficos adicionales, horas punta, edición de distribución y nuevos locales. Sin guardado de partida, objetivos finales, personal adicional, publicación ni push.

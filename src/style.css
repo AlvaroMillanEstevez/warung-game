@@ -53,7 +53,7 @@ dialog::backdrop { background: var(--backdrop); }
 }
 .eyebrow { display: block; margin-bottom: 7px; color: var(--green); font-size: 10px; font-weight: 700; letter-spacing: 1.4px; }
 .upgrades-heading h2 { margin: 0; font-family: var(--font-heading); font-size: 25px; letter-spacing: -.7px; line-height: 1.15; }
-#close-upgrades, #close-debug { flex: 0 0 auto; min-width: 76px; background: var(--cream); border-color: var(--metal); }
+#close-upgrades, #close-debug, #close-orders { flex: 0 0 auto; min-width: 76px; background: var(--cream); border-color: var(--metal); }
 #upgrade-money { margin: 9px 0 0; font-size: 13px; font-weight: 700; color: var(--green); }
 .upgrades-heading > div { min-width: 0; }
 .office-settings { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 18px; margin: 12px 0 16px; }
@@ -90,11 +90,23 @@ dialog::backdrop { background: var(--backdrop); }
   .upgrade-buy { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
   .upgrade-buy button { width: auto; min-width: 125px; max-width: 100%; }
   .upgrade-buy small { margin: 0; text-align: left; }
-  #close-upgrades, #close-debug { min-width: 66px; padding: 10px; }
+  #close-upgrades, #close-debug, #close-orders { min-width: 66px; padding: 10px; }
 }
 @media (max-height: 460px) {
   .upgrades-heading { padding: 11px 0; }
   .upgrades-heading h2 { font-size: 20px; }
   .eyebrow { margin-bottom: 4px; }
 }
+.order-card { position: absolute; z-index: 2; top: max(72px, calc(env(safe-area-inset-top) + 62px)); left: max(14px, env(safe-area-inset-left)); display: flex; align-items: center; gap: 8px; width: max-content; max-width: min(240px, calc(100% - 28px)); border-radius: 12px; padding: 9px 12px; background: var(--cream); color: var(--greenDark); box-shadow: var(--shadow-hud); pointer-events: none; font-size: 12px; }
+.order-card small { display: block; font-size: 11px; margin-top: 3px; }
+.meal-icon { flex: 0 0 25px; height: 17px; border: 2px solid var(--metal); border-radius: 50%; background: var(--woodLight); box-shadow: inset 0 0 0 3px var(--cream); }
+#order-content { padding: 4px 0 8px; font-size: 14px; line-height: 1.5; }
+#order-content h3 { font-size: 18px; margin: 12px 0; }
+#order-content button { margin: 8px 8px 0 0; max-width: 100%; }
+#accept-order { background: var(--green); color: var(--cream); }
+#order-content .order-goal { padding: 12px; border-radius: 10px; background: var(--kitchen); font-size: 16px; }
+.order-help { color: var(--muted); font-size: 13px; }
+.order-progress, .order-feedback { font-weight: 700; color: var(--green); }
+.order-confirm { border-left: 3px solid var(--coral); padding-left: 12px; }
+@media (max-height: 460px) { .order-card { left: auto; right: max(14px, env(safe-area-inset-right)); top: max(14px, env(safe-area-inset-top)); max-width: 220px; } }
 @media (prefers-reduced-motion: reduce) { button { transition: none; } }

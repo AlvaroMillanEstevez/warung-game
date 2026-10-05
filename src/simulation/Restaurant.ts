@@ -1,9 +1,10 @@
 import type { Key, Message } from '../i18n/core.ts';
 import { CUSTOMERS, DEMAND, PLAYER, STAFF, UPGRADES } from '../config.ts';
-import { CLEANING_WAIT_POINTS, CUSTOMER_ENTRIES, CUSTOMER_LAYOUT, EXTRA_TABLES, EXTRA_STOVE, INTERACTION_ZONES, QUEUE_POINTS, STAFF_POSITIONS, STATIONS, TABLE_POSITIONS, stationZone } from '../world/layout.ts';
+import { CASHIER_WORK, CLEANING_WAIT_POINTS, CUSTOMER_ENTRIES, CUSTOMER_LAYOUT, EXTRA_TABLES, EXTRA_STOVE, INTERACTION_ZONES, QUEUE_POINTS, STAFF_POSITIONS, STATIONS, TABLE_POSITIONS, stationZone } from '../world/layout.ts';
 import type { InteractionZone, Point, Rect, StationData } from '../world/layout.ts';
 import { canStandCustomer, findCustomerPath } from '../world/customerNavigation.ts';
 import { CustomerComments } from './CustomerComments.ts';
+import { BulkOrders } from './BulkOrders.ts';
 import { Production } from './Production.ts';
 import { Staff } from './Staff.ts';
 import type { UpgradeId } from '../config.ts';
@@ -40,7 +41,9 @@ export interface Order {
 export type RestaurantAction =
   | { kind: 'production'; action: ProductionAction; stoveId?: string | undefined; slotIndex?: number | undefined }
   | { kind: 'checkout'; customerId: string; tableId: string | null }
-  | { kind: 'clean'; tableId: string };
+  | { kind: 'clean'; tableId: string }
+  | { kind: 'withdraw'; orderId: number; carried: number }
+  | { kind: 'pack'; orderId: number; packed: number };
 export type Offer = { command: RestaurantAction; label: Message } | { command: null; reason: Key };
 export interface RestaurantOptions {
   arrivalMs: number; dineInChance: number; maxCustomers: number; queueLimits: Record<Intent, number>;
@@ -70,12 +73,14 @@ export class Restaurant {
   private readonly lines: Record<Intent, string[]> = { 'dine-in': [], takeaway: [] };
   readonly staff = new Staff();
   readonly comments = new CustomerComments();
+  readonly bulkOrders = new BulkOrders();
+  private bulkUnlockedNotice = false;
   private spent = 0;
   private tier = 0;
   private demandNotice = false;
   private readonly locks = new Map<string, string>();
   private readonly loadReservations = new Map<string, string>();
-  private levels: Record<UpgradeId, number> = { cook: 0, cleaner: 0, transport: 0, actionSpeed: 0, stoveSpeed: 0, tables: 0, stove: 0 };
+  private levels: Record<UpgradeId, number> = { cook: 0, cleaner: 0, cashier: 0, transport: 0, actionSpeed: 0, stoveSpeed: 0, tables: 0, stove: 0 };
   private readonly random: () => number;
   private clockMs = 0;
   private arrivalElapsedMs = 0;
@@ -110,6 +115,15 @@ export class Restaurant {
   get arrivalsStarted(): boolean { return this.arrivalsActive; }
   get awaitingFirstArrival(): boolean { return this.arrivalsActive && this.firstArrival; }
   takeDemandNotice(): boolean { const value = this.demandNotice; this.demandNotice = false; return value; }
+  takeBulkUnlockedNotice(): boolean { const value = this.bulkUnlockedNotice; this.bulkUnlockedNotice = false; return value; }
+  acceptBulkOrder(id: number): boolean { return this.bulkOrders.accept(id); }
+  cancelBulkOrder(id: number): boolean {
+    const returned = this.bulkOrders.cancel(id);
+    if (returned === null) return false;
+    this.production.returnPackedMeals(returned);
+    this.cancelAction('player');
+    return true;
+  }
   get teamActionMs(): number { return UPGRADES.actionSpeed.durationsMs[this.levels.actionSpeed]!; }
   upgradeLevel(id: UpgradeId): number { return this.levels[id]; }
   get activeReservations(): ReadonlyMap<string, string> { return new Map(this.locks); }
@@ -125,7 +139,7 @@ export class Restaurant {
     return actorId === 'player' ? this.production.playerInventory : this.staff.get(actorId)?.inventory;
   }
   private resourceKey(command: RestaurantAction): string | null {
-    return command.kind === 'clean' ? 'table:' + command.tableId :
+    return command.kind === 'checkout' ? 'checkout' : command.kind === 'clean' ? 'table:' + command.tableId :
       command.kind === 'production' && command.slotIndex !== undefined ? 'slot:' + command.stoveId + ':' + command.slotIndex : null;
   }
   beginAction(command: RestaurantAction, actorId = 'player'): boolean {
@@ -149,6 +163,7 @@ export class Restaurant {
     const level = this.levels[id], price = UPGRADES[id].prices[level] ?? null;
     const secondCookReady = this.staff.get('cook') && this.levels.stove > 0 && this.production.slotsFor(EXTRA_STOVE.id).length > 0;
     const problem = price === null ? (id === 'tables' ? 'limit.tables' : id === 'cook' ? 'limit.cooks' : 'limit.max') :
+      id === 'cashier' && !this.staff.get('cook') ? 'purchase.firstCook' :
       id === 'cook' && level === 1 && !secondCookReady ? 'purchase.secondCook' :
       this.coins < price ? 'purchase.funds' :
       this.furnitureToBuy(id) ? this.placementProblem(this.furnitureToBuy(id)!, player) : null;
@@ -182,12 +197,13 @@ export class Restaurant {
       this.tier = tier; this.demandNotice = true;
       if (!this.firstArrival) this.arrivalElapsedMs = 0;
     }
-    if (id === 'cook' || id === 'cleaner') {
+    if (id === 'cook' || id === 'cleaner' || id === 'cashier') {
       this.staff.hire(id === 'cook' && this.levels.cook === 2 ? 'cook-2' : id, this.teamCapacity);
       // A second cook fixes stove ownership; only tasks on the now unassigned stove become invalid.
       for (const worker of this.staff.employees)
         if (worker.task && this.validate(worker.task.command, worker.id)) this.staff.cancel(worker.id, this);
     }
+    if (id === 'cook' && this.bulkOrders.unlock(this.options.price)) this.bulkUnlockedNotice = true;
     if (id === 'transport') {
       const capacity = UPGRADES.transport.capacities[this.levels.transport]!;
       this.production.playerInventory.setLimits({ ingredients: capacity, meals: capacity, waste: capacity });
@@ -253,6 +269,7 @@ export class Restaurant {
   update(deltaMs: number): void {
     if (!Number.isFinite(deltaMs) || deltaMs <= 0) return;
     this.clockMs += deltaMs;
+    this.bulkOrders.update(deltaMs, this.options.price, this.random);
     this.production.update(deltaMs);
     for (const customer of [...this.people.values()]) {
       if (customer.phase === 'eating') {
@@ -281,9 +298,21 @@ export class Restaurant {
   offer(zone: InteractionZone, actorId = 'player'): Offer {
     const inventory = this.actorInventory(actorId);
     if (!inventory) return { command: null, reason: 'reason.actor' };
+    if (zone.role === 'board') return { command: null, reason: 'bulk.boardHint' };
+    if (zone.role === 'withdraw' || zone.role === 'packing') {
+      if (actorId !== 'player') return { command: null, reason: 'bulk.playerOnly' };
+      const order = this.bulkOrders.state;
+      if (order.phase !== 'active') return { command: null, reason: 'bulk.needActive' };
+      const command: RestaurantAction = zone.role === 'packing' ?
+        { kind: 'pack', orderId: order.id, packed: order.packed } :
+        { kind: 'withdraw', orderId: order.id, carried: inventory.count('meals') };
+      const reason = this.validate(command, actorId);
+      return reason ? { command: null, reason } : { command, label: zone.role === 'packing' ? 'action.pack' : 'action.withdraw' };
+    }
     if (zone.role === 'office') return { command: null, reason: 'reason.office' };
     if (zone.role === 'checkout') {
-      if (actorId !== 'player') return { command: null, reason: 'reason.playerCheckout' };
+      if (actorId !== 'player' && this.staff.get(actorId)?.role !== 'cashier') return { command: null, reason: 'reason.playerCheckout' };
+      if (!this.resourceAvailable('checkout', actorId)) return { command: null, reason: 'reason.checkoutBusy' };
       const eligible = (['dine-in', 'takeaway'] as const).map(intent => {
         const id = this.lines[intent][0];
         const customer = id ? this.people.get(id) : undefined;
@@ -321,6 +350,7 @@ export class Restaurant {
     if (resource && !this.resourceAvailable(resource, actorId)) return 'reason.resourceBusy';
     if (command.kind === 'production' && (command.action === 'start-cooking' || command.action === 'take-meal') && (command.slotIndex === undefined || command.stoveId === undefined)) return 'reason.missingSlot';
     const worker = this.staff.get(actorId);
+    if (worker?.role === 'cashier' && command.kind !== 'checkout') return 'reason.cashierRole';
     if (worker?.role === 'cleaner' && !(command.kind === 'clean' || (command.kind === 'production' && command.action === 'discard'))) return 'reason.cleanerRole';
     if (worker?.role === 'cook') {
       if (command.kind !== 'production' || command.action === 'discard') return 'reason.cookRole';
@@ -330,13 +360,26 @@ export class Restaurant {
       if ((command.action === 'start-cooking' || command.action === 'take-ingredients') &&
           this.committedProduction - ownReservation >= STAFF.cookStockTarget) return 'reason.productionTarget';
     }
+    if (command.kind === 'withdraw' || command.kind === 'pack') {
+      if (actorId !== 'player') return 'bulk.playerOnly';
+      const order = this.bulkOrders.state;
+      if (order.phase !== 'active' || order.id !== command.orderId) return 'bulk.needActive';
+      if (command.kind === 'pack') return !this.bulkOrders.canPack(command.orderId, command.packed) ?
+        'reason.actionUnavailable' : !inventory.has('meals') ? 'reason.noMealsCarried' : null;
+      if (inventory.count('meals') !== command.carried) return 'reason.actionUnavailable';
+      if (command.carried >= this.bulkOrders.pending) return 'bulk.enoughCarried';
+      if (!inventory.canAdd('meals')) return 'reason.mealsFull';
+      return this.production.availablePortions < 1 ? 'reason.noStock' : null;
+    }
     if (command.kind === 'production') return this.production.canPerform(command.action, command.slotIndex, inventory, command.stoveId) ? null : 'reason.productionUnavailable';
     if (command.kind === 'clean') {
       const table = this.seats.get(command.tableId);
       return !inventory.canAdd('waste') ? 'reason.wasteFull' : table?.cleanliness !== 'dirty' ? 'reason.tableAlreadyClean' : null;
     }
     if (command.kind === 'checkout') {
-      if (actorId !== 'player') return 'reason.playerCheckout';
+      if (actorId !== 'player' && this.staff.get(actorId)?.role !== 'cashier') return 'reason.playerCheckout';
+      const cashier = this.staff.get(actorId);
+      if (cashier?.role === 'cashier' && Math.hypot(cashier.position.x - CASHIER_WORK.x, cashier.position.y - CASHIER_WORK.y) > .1) return 'reason.cashierPosition';
       const customer = this.people.get(command.customerId);
       if (!customer || customer.phase !== 'queueing' || customer.orderId || this.lines[customer.intent][0] !== customer.id) return 'reason.customerNotReady';
       if (this.production.availablePortions < 1) return 'reason.stockGone';
@@ -356,7 +399,6 @@ export class Restaurant {
       return this.production.perform(command.action, command.slotIndex, inventory, command.stoveId);
     }
     if (command.kind === 'checkout') {
-      if (actorId !== 'player') return 'reason.playerCheckout';
       const customer = this.people.get(command.customerId)!;
       const table = command.tableId ? this.seats.get(command.tableId)! : null;
       const destination = table ? (table.cleanliness === 'clean' ? TABLE_POSITIONS[table.id]!.seat : CLEANING_WAIT_POINTS[table.id]!) : CUSTOMER_LAYOUT.exit;
@@ -378,6 +420,16 @@ export class Restaurant {
       this.advanceQueue(customer.intent);
       return { key: table ? 'result.checkoutDineIn' : 'result.checkoutTakeaway', params: { price: this.options.price, number: customer.number } };
     }
+    if (command.kind === 'withdraw') return this.production.withdrawMeal(inventory) ? 'result.withdraw' : null;
+    if (command.kind === 'pack') {
+      const packed = this.bulkOrders.pack(command.orderId, command.packed);
+      if (!packed) return null;
+      inventory.change('meals', -1);
+      if (!packed.completed) return 'result.packed';
+      this.coins += packed.payment;
+      return { key: packed.first ? 'bulk.firstComplete' : 'bulk.complete',
+        params: { payment: packed.payment, bonus: packed.bonus } };
+    }
     const table = this.seats.get(command.tableId)!;
     if (!this.production.collectWaste(inventory)) return null;
     table.dirtySince = null;
@@ -390,6 +442,7 @@ export class Restaurant {
   reset(): void {
     this.staff.reset(); this.locks.clear(); this.loadReservations.clear(); this.comments.reset();
     this.spent = 0; this.tier = 0; this.demandNotice = false;
+    this.bulkOrders.reset(); this.bulkUnlockedNotice = false;
     for (const id of Object.keys(this.levels) as UpgradeId[]) this.levels[id] = 0;
     this.production.reset();
     this.people.clear(); this.tickets.clear(); this.seats.clear();

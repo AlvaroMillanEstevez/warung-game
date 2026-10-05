@@ -26,6 +26,14 @@
         <div id="upgrade-list"></div>
         <p id="upgrade-feedback" role="status" aria-live="polite"></p>
       </dialog>
+      <aside id="order-card" class="order-card" hidden>
+        <span class="meal-icon" aria-hidden="true"></span><div><strong id="order-card-progress"></strong><small id="order-card-timer"></small></div>
+      </aside>
+      <dialog id="orders-panel" data-ui aria-labelledby="orders-title">
+        <header class="upgrades-heading"><div><span class="eyebrow" data-i18n="bulk.eyebrow"></span><h2 id="orders-title" data-i18n="bulk.title"></h2></div><button id="close-orders" type="button" data-i18n="common.close"></button></header>
+        <p class="upgrades-intro" data-i18n="bulk.paused"></p>
+        <div id="order-content"></div>
+      </dialog>
       <dialog id="debug-panel" data-ui aria-labelledby="debug-title">
         <header class="upgrades-heading"><h2 id="debug-title" data-i18n="debug.title"></h2><button id="close-debug" type="button" data-i18n="common.close"></button></header>
         <pre id="debug-state"></pre>

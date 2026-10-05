@@ -13,7 +13,7 @@ test('Ocho ingredientes con ocho ciclos completos sin salir; lleno espera sin pr
   const p = new Production(), dwell = new DwellInteraction();
   for (let i = 1; i <= 8; i++) {
     const target = { id: 'fridge', action: p.availableAt('fridge').action };
-    assert.equal(dwell.update(target, ['fridge'], false, 1499), null);
+    assert.equal(dwell.update(target, ['fridge'], false, 799), null);
     assert.ok(p.perform(dwell.update(target, ['fridge'], false, 1)));
     assert.equal(p.inventory.ingredients, i);
   }
@@ -108,7 +108,7 @@ test('Movimiento, salida, cambio de objetivo, invalidez y foco descartan progres
   const target = { id: 'checkout', action: 'customer-1' };
   for (const mode of ['move', 'leave', 'target', 'invalid', 'focus', 'reset']) {
     const d = new DwellInteraction();
-    d.update(target, ['checkout'], false, 1400);
+    d.update(target, ['checkout'], false, 700);
     if (mode === 'move') d.update(target, ['checkout'], true, 5000);
     if (mode === 'leave') d.update(target, [], false, 5000);
     if (mode === 'target') d.update({ ...target, action: 'customer-2' }, ['checkout'], false, 0);
@@ -116,16 +116,16 @@ test('Movimiento, salida, cambio de objetivo, invalidez y foco descartan progres
     if (mode === 'focus') d.cancel();
     if (mode === 'reset') d.reset();
     assert.equal(d.progress, 0);
-    assert.equal(d.update(target, ['checkout'], false, 1499), null);
+    assert.equal(d.update(target, ['checkout'], false, 799), null);
     assert.equal(d.update(target, ['checkout'], false, 1), target.action);
-    assert.equal(d.update(target, ['checkout'], false, 1499), null);
+    assert.equal(d.update(target, ['checkout'], false, 799), null);
   }
 });
 test('Espera sin acción no acumula tiempo y un delta enorme nunca ejecuta más de una unidad', () => {
   const d = new DwellInteraction();
   d.update({ id: 'checkout', action: null }, ['checkout'], false, 90000);
   const target = { id: 'checkout', action: 'customer-1' };
-  assert.equal(d.update(target, ['checkout'], false, 1499), null);
+  assert.equal(d.update(target, ['checkout'], false, 799), null);
   assert.equal(d.update(target, ['checkout'], false, 1), target.action);
   assert.equal(d.update(target, ['checkout'], false, 90000), target.action);
   assert.equal(d.progress, 0);

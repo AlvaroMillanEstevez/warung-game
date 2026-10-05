@@ -28,6 +28,7 @@ export class DebugPanel {
       gasto: r.totalSpent, tramoDemanda: r.demandTier, frecuencia: r.demandFrequency, intervaloMs: r.arrivalIntervalMs,
       filas: { dentro: r.queue('dine-in').length, llevar: r.queue('takeaway').length }, clientes: r.customers.length,
       capacidadEquipo: r.teamCapacity, accionMs: r.teamActionMs,
+      encargos: r.bulkOrders.state, primerEncargoCompletado: r.bulkOrders.firstCompleted, reservas: [...r.activeReservations],
       jugador: r.production.inventory, stock: r.production.availablePortions,
       produccionComprometida: r.committedProduction, cargasReservadas: r.reservedProduction,
       personal: r.staff.employees.map(w => ({ id: w.id, hornillo: w.assignedStove, inventario: w.inventory.state, tarea: w.task })),

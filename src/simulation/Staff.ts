@@ -1,13 +1,13 @@
 import type { Message } from '../i18n/core.ts';
 import { STAFF } from '../config.ts';
-import { STAFF_POSITIONS } from '../world/layout.ts';
+import { CASHIER_WORK, STAFF_POSITIONS } from '../world/layout.ts';
 import type { Point } from '../world/layout.ts';
 import { findPath } from '../world/navigation.ts';
 import { Inventory } from './Inventory.ts';
 import type { Restaurant, RestaurantAction, Offer } from './Restaurant.ts';
 
-export type StaffRole = 'cook' | 'cleaner';
-export type StaffId = 'cook' | 'cook-2' | 'cleaner';
+export type StaffRole = 'cook' | 'cleaner' | 'cashier';
+export type StaffId = 'cook' | 'cook-2' | 'cleaner' | 'cashier';
 export interface Employee {
   readonly id: StaffId;
   readonly role: StaffRole;
@@ -24,9 +24,9 @@ export class Staff {
   get(id: string): Employee | undefined { return this.workers.get(id as StaffId); }
   hire(id: StaffId, capacity: number): void {
     if (this.workers.has(id)) return;
-    const role = id === 'cleaner' ? 'cleaner' : 'cook';
+    const role: StaffRole = id === 'cashier' ? 'cashier' : id === 'cleaner' ? 'cleaner' : 'cook';
     this.workers.set(id, { id, role, assignedStove: null,
-      inventory: new Inventory(role === 'cook' ? { ingredients: capacity, meals: capacity } : { waste: capacity }),
+      inventory: new Inventory(role === 'cook' ? { ingredients: capacity, meals: capacity } : role === 'cleaner' ? { waste: capacity } : {}),
       position: { ...STAFF_POSITIONS[id] }, route: [], task: null, retryMs: 0 });
     if (this.get('cook') && this.get('cook-2')) {
       this.get('cook')!.assignedStove = 'stove';
@@ -35,7 +35,7 @@ export class Staff {
   }
   upgradeCapacity(capacity: number): void {
     for (const worker of this.workers.values()) worker.inventory.setLimits(worker.role === 'cook' ?
-      { ingredients: capacity, meals: capacity } : { waste: capacity });
+      { ingredients: capacity, meals: capacity } : worker.role === 'cleaner' ? { waste: capacity } : {});
   }
   reset(): void { this.workers.clear(); }
   cancel(id: string, restaurant: Restaurant): void {
@@ -48,7 +48,8 @@ export class Staff {
       worker.retryMs = Math.max(0, worker.retryMs - deltaMs);
       if (worker.task && restaurant.validate(worker.task.command, worker.id)) this.cancel(worker.id, restaurant);
       if (!worker.task && worker.retryMs === 0) {
-        const next = worker.role === 'cook' ? this.planCook(worker, restaurant) : this.planCleaner(worker, restaurant);
+        const next = worker.role === 'cashier' ? this.planCashier(worker, restaurant) :
+          worker.role === 'cook' ? this.planCook(worker, restaurant) : this.planCleaner(worker, restaurant);
         if (next?.offer.command) {
           const route = findPath(worker.position, next.destination, restaurant.routingObstacles);
           if (route && restaurant.beginAction(next.offer.command, worker.id)) {
@@ -63,7 +64,7 @@ export class Staff {
             restaurant.production.slotsFor(z.id).some(slot => slot.status === 'cooking'))
             .sort((a, b) => Math.hypot(a.position.x - worker.position.x, a.position.y - worker.position.y) -
               Math.hypot(b.position.x - worker.position.x, b.position.y - worker.position.y)) : [];
-          const wait = cooking[0]?.position ?? STAFF_POSITIONS[worker.id];
+          const wait = worker.role === 'cashier' ? CASHIER_WORK : cooking[0]?.position ?? STAFF_POSITIONS[worker.id];
           if (Math.hypot(wait.x - worker.position.x, wait.y - worker.position.y) > 0.1)
             worker.route = findPath(worker.position, wait, restaurant.routingObstacles) ?? [];
         }
@@ -78,6 +79,12 @@ export class Staff {
         restaurant.perform(worker.task.command, worker.id);
       this.cancel(worker.id, restaurant);
     }
+  }
+  private planCashier(worker: Employee, r: Restaurant): { offer: Offer; destination: Point } | null {
+    // Reach the till before claiming it: walking to work never monopolizes checkout.
+    if (Math.hypot(worker.position.x - CASHIER_WORK.x, worker.position.y - CASHIER_WORK.y) > .1) return null;
+    const zone = r.interactionZones.find(z => z.id === 'checkout')!;
+    return { offer: r.offer(zone, worker.id), destination: CASHIER_WORK };
   }
   private planCook(worker: Employee, r: Restaurant): { offer: Offer; destination: Point } | null {
     const inventory = { ingredients: worker.inventory.count('ingredients'), meals: worker.inventory.count('meals'), waste: worker.inventory.count('waste'),

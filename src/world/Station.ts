@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { i18n, t } from '../i18n';
 import { PALETTE as C, VISUAL as V } from '../visuals/theme';
 import { checkmark, label, meal, progressBar, softShadow } from '../visuals/drawing';
 import { TABLE_POSITIONS } from './layout';
@@ -14,6 +15,7 @@ export class Station {
   private readonly productionArt: Phaser.GameObjects.Graphics;
   private lastProductionKey = '';
   private lastReady = 0;
+  private packingText?: Phaser.GameObjects.Text;
   private readyAt = -Infinity;
 
   constructor(scene: Phaser.Scene, readonly data: StationData) {
@@ -108,6 +110,13 @@ export class Station {
         g.lineStyle(1, C.woodLight).lineBetween(77, -lift + 23, 85, -lift + 23).lineBetween(77, -lift + 39, 85, -lift + 39);
         break;
       }
+      case 'packing': {
+        g.fillStyle(C.cream).fillEllipse(12, -lift + 10, 14, 9);
+        g.fillStyle(C.wood).fillEllipse(12, -lift + 10, 7, 4);
+        this.packingText = label(scene, w / 2, d - lift + 12, '', 10, C.greenDark).setOrigin(.5);
+        this.visual.add(this.packingText);
+        break;
+      }
       case 'bin': {
         g.fillStyle(C.greenDark).fillRoundedRect(8, -lift + 8, w - 16, d - 17, 9);
         g.fillStyle(C.shadow, .35).fillRoundedRect(12, -lift + 12, w - 24, 10, 5);
@@ -124,7 +133,7 @@ export class Station {
     this.productionArt = scene.add.graphics(); this.visual.add(this.productionArt);
   }
   showState(restaurant: Restaurant): void {
-    if (!['stove', 'counter', 'table'].includes(this.data.kind)) return;
+    if (!['stove', 'counter', 'table', 'packing'].includes(this.data.kind)) return;
     const production = restaurant.production, table = restaurant.table(this.data.id);
     const customer = table?.customerId ? restaurant.customer(table.customerId) : undefined;
     const slots = production.slotsFor(this.data.id), readyCount = slots.filter(slot => slot.status === 'ready').length;
@@ -134,11 +143,23 @@ export class Station {
     const settle = Math.max(0, 1 - (restaurant.elapsedMs - this.readyAt) / V.motion.settleMs);
     this.productionArt.y = -Math.sin(settle * Math.PI) * 1.5;
     const stoveKey = slots.map(slot => slot.status === 'cooking' ? Math.floor(slot.elapsedMs / slot.durationMs * 50) : slot.status).join(',');
-    const key = [stoveKey, production.availablePortions, table?.cleanliness, customer?.id, customer?.phase].join(':');
+    const bulk = restaurant.bulkOrders.state;
+    const packingKey = bulk.phase === 'active' ? bulk.id + ':' + bulk.packed : bulk.phase;
+    const key = [packingKey, i18n.current, stoveKey, production.availablePortions, table?.cleanliness, customer?.id, customer?.phase].join(':');
     if (key === this.lastProductionKey) return;
     this.lastProductionKey = key;
     const g = this.productionArt.clear(), lift = this.data.height, d = this.data.footprint.height;
-    if (this.data.kind === 'stove') {
+    if (this.data.kind === 'packing') {
+      this.packingText?.setVisible(bulk.phase === 'active');
+      if (bulk.phase !== 'active') return;
+      this.packingText?.setText(t('bulk.box', { packed: bulk.packed, total: bulk.quantity }));
+      g.fillStyle(C.woodDark).fillRoundedRect(17, -lift + 7, 43, 20, 4);
+      g.fillStyle(C.wallShade).fillRoundedRect(20, -lift + 8, 37, 14, 3);
+      for (let i = 0; i < bulk.packed; i++) meal(g, 26 + i % 5 * 6, -lift + 12 + Math.floor(i / 5) * 6, .22);
+      g.fillStyle(C.woodLight).fillRect(17, -lift + 22, 43, 6);
+      g.fillStyle(C.cream).fillRect(36, -lift + 22, 5, 6);
+      progressBar(g, 6, d - lift + 22, 54, bulk.packed / bulk.quantity);
+    } else if (this.data.kind === 'stove') {
       slots.forEach((slot, index) => {
         if (slot.status === 'empty') return;
         const x = 24 + Math.floor(index / 2) * 50, y = -lift + 16 + (index % 2) * 25;

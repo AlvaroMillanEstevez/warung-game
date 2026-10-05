@@ -66,6 +66,7 @@ export class Production {
         { action: null, reason: 'reason.noMealsCarried' };
       case 'bin': return inventory.has('waste') ? { action: 'discard', label: 'action.discard' } :
         { action: null, reason: 'reason.noWaste' };
+      case 'packing': return { action: null, reason: 'bulk.needActive' };
       case 'table': return { action: null, reason: 'reason.tableNeedsDirt' };
     }
   }
@@ -99,6 +100,15 @@ export class Production {
       case 'store-meal': this.stock++; inventory.change('meals', -1); return 'result.deposit';
       case 'discard': inventory.change('waste', -1); return 'result.discard';
     }
+  }
+  withdrawMeal(inventory = this.playerInventory): boolean {
+    if (this.stock < 1 || !inventory.canAdd('meals')) return false;
+    if (!inventory.change('meals', 1)) return false;
+    this.stock--; return true;
+  }
+  returnPackedMeals(count: number): void {
+    if (!Number.isSafeInteger(count) || count < 0) throw new Error('Invalid returned quantity');
+    this.stock += count;
   }
   sellAvailable(): boolean { if (this.stock < 1) return false; this.stock--; return true; }
   collectWaste(inventory = this.playerInventory): boolean { return inventory.change('waste', 1); }

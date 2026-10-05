@@ -4,7 +4,7 @@
 
 Juego de gestión de un warung indonesio para navegador, ordenador y móvil. Un local y una receta: nasi goreng. Phaser 4.2.1, TypeScript estricto y Vite con npm y lockfile. Sin frameworks de interfaz, backend, servicios externos ni assets descargados. Gráficos provisionales con Phaser.
 
-Los hitos 1–4 están aprobados manualmente. La revisión de experiencia y balance está aprobada manualmente. El cierre del primer local también está aprobado manualmente. La revisión de oficina, cámara, llegadas, demanda y dos cocineros también está aprobada manualmente. La renovación visual está aprobada manualmente. El encargo actual añade localización es/en/id manteniendo reglas y balance. Solo se guarda la preferencia de idioma. Detenerse al terminar para revisión, sin nuevos locales, recetas, guardado de partida ni objetivos finales.
+Los hitos 1–4 están aprobados manualmente. La revisión de experiencia y balance está aprobada manualmente. El cierre del primer local también está aprobado manualmente. La revisión de oficina, cámara, llegadas, demanda y dos cocineros también está aprobada manualmente. La renovación visual está aprobada manualmente. La localización y la base están aprobadas manualmente. El encargo actual añade acciones a 0,8/0,6/0,4 s, un cajero y encargos voluntarios de nasi goreng, conservando demanda, cocción, movimiento y consumo. Solo se guarda la preferencia de idioma. Detenerse al terminar para revisión, sin nuevos locales, recetas, guardado de partida ni objetivos finales.
 
 ## Dirección visual
 
@@ -14,7 +14,7 @@ Alfombra Selamat datang en la entrada efectiva de clientes, solo decorativa. Pla
 
 Personajes con vestuario por rol y cuatro variantes de clientes. Piezas de Graphics dibujadas una vez; marcha solo mediante transformaciones, profundidad por pies. Torres exactas: paquetes de ingredientes, platos ovalados y bolsas de residuos. Wok/vapor/progreso, marca de listo y restos/exclamación identifican estados además del color. Avisos fuera de la carga.
 
-Panel de mejoras con estados escritos y cierre fijo al desplazar la lista. HUD solo dinero. Animación breve al quedar lista una ración, sin filtros, partículas ni sacudidas. Detalles y límites en [VISUAL_DESIGN.md](VISUAL_DESIGN.md). Esta renovación no cambia ninguna regla descrita a continuación.
+Panel de mejoras con estados escritos y cierre fijo al desplazar la lista. HUD de dinero, más tarjeta compacta únicamente con encargo activo. Animación breve al quedar lista una ración, sin filtros, partículas ni sacudidas. Detalles y límites en [VISUAL_DESIGN.md](VISUAL_DESIGN.md). Esta renovación no cambia ninguna regla descrita a continuación.
 
 ## Localización
 
@@ -52,7 +52,7 @@ Cada actor posee inventario independiente y solo categorías aplicables:
 
 Capacidad inicial **8** por categoría; transporte global la mejora a **12** y **16**. Una compra actualiza todos los inventarios existentes sin cambiar su contenido. Contrataciones posteriores heredan el nivel actual. Las categorías no comparten espacio. El mostrador conserva stock ilimitado.
 
-La rapidez también es global: **1,5 → 1,2 → 0,9 s** por acción. Afecta recogida, carga, depósito, limpieza, eliminación de residuos y cobro del jugador; el personal usa el mismo tiempo para sus acciones aplicables. Cada ciclo captura su duración al comenzar la permanencia; una tarea que ya está actuando no cambia de duración al mejorar. Un trabajador aún caminando captura el valor cuando empieza a actuar al llegar.
+La rapidez también es global: **0,8 → 0,6 → 0,4 s** por acción. Afecta recogida, carga, depósito, limpieza, eliminación de residuos y cobro, retirada de stock y empaquetado del jugador; el personal usa el mismo tiempo para sus acciones aplicables. Cada ciclo captura su duración al comenzar la permanencia; una tarea que ya está actuando no cambia de duración al mejorar. Un trabajador aún caminando captura el valor cuando empieza a actuar al llegar.
 
 No cambia desplazamiento (jugador 185, personal 110, clientes 90 unidades/s), consumo de clientes (6 s), ni cocción, que conserva su mejora específica.
 
@@ -68,17 +68,17 @@ Cada ración tarda inicialmente 4 s. Las mejoras específicas reducen nuevas coc
 
 Depositar convierte un plato transportado en una ración disponible del mostrador por ciclo. Todos los platos del jugador son producción; no hay reparto ni platos ligados a pedidos. La papelera solo elimina residuos, una unidad por ciclo.
 
-Las reservas de trabajo bloquean únicamente un par hornillo/posición o su ración o residuos de una mesa. No bloquean la estación completa ni la asignación del cliente. Se comparten validaciones y transferencias atómicas entre jugador y personal. Completar, cancelar, invalidar, no encontrar ruta o reiniciar libera la reserva.
+Las reservas de trabajo bloquean un par hornillo/posición o su ración, residuos de una mesa o la única operación de caja compartida entre jugador y cajero. No bloquean la estación completa ni la asignación del cliente. Se comparten validaciones y transferencias atómicas entre jugador y personal. Completar, cancelar, invalidar, no encontrar ruta o reiniciar libera la reserva.
 
 ## Personal
 
-Como máximo **dos cocineros y una persona de limpieza**. Identidad y profesión independientes; nadie cambia de profesión, cobra ni reparte. Inventario propio, traslado físico y acciones temporizadas. Una tarjeta «Contratar cocinero» cuesta **100 / 220**; el segundo requiere primer cocinero y segundo hornillo instalado y operativo. Con dos muestra «Equipo completo». Ambos heredan mejoras globales previas y posteriores.
+Como máximo **dos cocineros, una persona de limpieza y un cajero**. Identidad y profesión independientes; nadie cambia de profesión ni reparte. El cajero solo cobra, sin inventario de comida o residuos. Inventario propio, traslado físico y acciones temporizadas. Una tarjeta «Contratar cocinero» cuesta **100 / 220**; el segundo requiere primer cocinero y segundo hornillo instalado y operativo. Con dos muestra «Equipo completo». Ambos heredan mejoras globales previas y posteriores.
 
 Con uno, consulta ambos hornillos, prioriza raciones listas y después posiciones vacías, eligiendo el más cercano entre candidatos equivalentes. Con dos, el primero queda asignado al inicial y el segundo al adicional. Solo trabajan en su hornillo, sin ayuda cruzada ni reasignaciones continuas; comparten frigorífico y depósito. Contratar el segundo cancela únicamente tareas del primero en el hornillo que deja de corresponderle: libera sus reservas conservando posición e inventario. Las demás tareas válidas se conservan. El jugador usa cualquiera.
 
 Objetivo conjunto: **12 raciones comprometidas** = stock + platos transportados por ambos cocineros + posiciones cocinando/listas de ambos hornillos + reservas de cargas automáticas pendientes. Cada ración cuenta una sola vez; ingredientes y platos que aún lleva el jugador no cuentan. Iniciar tarea de carga reserva capacidad y posición concreta. Al completar se revalida excluyendo la propia reserva: la cocción la reemplaza atómicamente. Cancelar, invalidar o reiniciar libera posición y capacidad; si falta ruta no se conserva reserva.
 
-Recogen ingredientes por lotes según capacidad y producción restante. Al alcanzar 12 dejan de recoger ingredientes y de iniciar cocciones, pero recogen y depositan lo producido, incluidos lotes parciales. Reanudan tras ventas conservando materias primas sobrantes. La producción manual puede superar 12 y cancelar cargas automáticas pendientes; las cocciones iniciadas se terminan. Esperan junto a su hornillo mientras cocina, y en un punto apartado sin trabajo.
+Recogen ingredientes por lotes según capacidad y producción restante. Al alcanzar 12 dejan de recoger ingredientes y de iniciar cocciones, pero recogen y depositan lo producido, incluidos lotes parciales. Reanudan tras ventas y retiradas de stock conservando materias primas sobrantes. La producción manual puede superar 12 y cancelar cargas automáticas pendientes; las cocciones iniciadas se terminan. Esperan junto a su hornillo mientras cocina, y en un punto apartado sin trabajo.
 
 Limpieza prioriza mesas sucias reservadas, por antigüedad del pago del cliente que espera. Después atiende otras mesas por antigüedad de suciedad. Vacía residuos al alcanzar su capacidad global o quedarse sin mesas sucias accesibles, aunque lleve menos. Sin tareas vuelve a su punto apartado. Una tarea iniciada mantiene objetivo hasta completarse o invalidarse.
 
@@ -116,24 +116,35 @@ Si está limpia, camina al asiento con plato y solo come al llegar. Si está suc
 
 Limpieza y asignación son independientes. Mesa sucia transfiere un residuo al actor con capacidad; llevar otros objetos no lo impide. Tras 6 s de comida, el cliente deja suciedad, libera la mesa y sale; no se cobra otra vez. El pedido conserva trazabilidad y se elimina al salir.
 
+## Cajero y encargos voluntarios
+
+El cajero cuesta 150, requiere primer cocinero y suma gasto válido. Camina al puesto x780/y195 antes de reservar la caja; no bloquea mientras camina. Usa exactamente la selección de cabeza elegible, stock y reservas de mesa actuales. Caja es una única reserva: jugador primero puede terminar; cajero primero mantiene su ciclo aunque el jugador se acerque. Sin stock/cliente/mesa válida espera y reanuda cuando puede. Hereda rapidez y conserva ciclos iniciados.
+
+Primer cocinero desbloquea una oferta de 6 nasi goreng, notificación y señal del tablón sin ventana automática. Después de completar/cancelar: espera 45 s activos, una oferta aleatoria de 6/8/10. Oferta no caduca; aceptación inicia 90 s activos para bonus del 50 % de base (cantidad × precio normal). Al llegar a cero permanece entregable por base. Ningún ingreso suma gasto.
+
+Tablón mural accesible al fondo y mesa de empaquetado contigua, sin mover muebles existentes. Retirada en x852/y200, distinta de caja y depósito; una ración real por ciclo, solo con encargo activo, limitada por capacidad y pendiente menos carga del jugador. Revalidación síncrona evita consumir la misma ración que una venta. No se reserva el stock al aceptar; cocineros mantienen reposición habitual.
+
+Empaquetar transfiere un plato por ciclo, conserva otras categorías y sobrantes. Caja física con unidades y progreso, pago automático único al completar, celebración breve. Cancelación con confirmación devuelve lo empaquetado una vez al stock y conserva inventario transportado y saldo; espera nueva de 45 s. Un único objetivo voluntario de primer encargo, sin recompensa adicional ni sistema genérico de misiones. HUD compacto de progreso/bonus solo durante encargo activo. Todos los textos es/en/id. Reglas, valores provisionales y recorrido de revisión en [ENCARGOS.md](ENCARGOS.md).
+
 ## Mensajes ambientales y representación
 
 Comentarios sobre clientes en fila: umbral aleatorio entre **10 y 15 s** asignado una vez. Participación aleatoria inicial del 65 %, de modo que algunos no comentan. Se comprueba cada **1 s**, sin probabilidad por frame ni comprobaciones acumuladas.
 
 Bocadillos de **2,5 s**, máximo **dos** visibles; cada cliente espera al menos **20 s** desde su comentario anterior. Solo aparecen dentro de cámara y se omiten donde se superpondrían a la carga de un actor. También evitan superponerse entre sí. Se retiran al atender, salir de cámara o caducar. No introducen paciencia, abandono o penalización.
 
-HUD permanente: solo **dinero**. El acceso a Mejoras se encuentra en la alfombra de la oficina en la pared izquierda. Se retiran inventario, stock, cocina, filas, nombre del juego y estados técnicos del HUD. En el mundo se conservan la comida, suciedad, ocupación, las señales de cocción/lista y puntos de acción/progreso. Mensajes contextuales breves como “Carga de ingredientes completa” o “Faltan platos” aparecen junto al jugador cuando cambia la situación, sin repetirse cada frame.
+HUD permanente: solo **dinero**; una tarjeta compacta adicional aparece durante el encargo activo. El acceso a Mejoras se encuentra en la alfombra de la oficina en la pared izquierda. Se retiran inventario, stock, cocina, filas, nombre del juego y estados técnicos del HUD. En el mundo se conservan la comida, suciedad, ocupación, las señales de cocción/lista y puntos de acción/progreso. Mensajes contextuales breves como “Carga de ingredientes completa” o “Faltan platos” aparecen junto al jugador cuando cambia la situación, sin repetirse cada frame.
 
 Cada categoría transportada dibuja exactamente su cantidad: 10 ingredientes son diez piezas, siete platos son siete. Son torres pequeñas y distinguibles al lado del cuerpo, sin cambiar colisiones. Las tres pilas simultáneas de 16 conservan rostro y orientación; profundidad por pies. Jugador y empleados comparten CargoView, que reutiliza Graphics y solo redibuja al cambiar cantidades o lado. El indicador +1/−1 se sitúa sobre la carga.
 
 ## Panel, tiempo y reinicio
 
-Mejoras se abre únicamente permaneciendo quieto en la oficina, con la duración vigente del jugador y el mismo progreso de interacción. Al completarse se bloquea ese acceso hasta salir de la zona y volver: cerrar no abre de nuevo. El resto de acciones mantienen repetición continua. Cancela entradas, gesto y permanencia del jugador, libera su reserva y pausa simulación. Personal conserva tareas congeladas. Cerrar descarta delta y requiere una entrada nueva para moverse; una acción válida puede comenzar desde cero. Compras síncronas con saldo y nivel esperado: descuento único, máximo y protección ante doble pulsación.
+Mejoras se abre únicamente permaneciendo quieto en la oficina, con 1,5 s independientes de rapidez y el mismo progreso de interacción. El tablón aplica la misma duración, pausa y bloqueo de reapertura. Al completarse se bloquea ese acceso hasta salir de la zona y volver: cerrar no abre de nuevo. El resto de acciones mantienen repetición continua. Cancela entradas, gesto y permanencia del jugador, libera su reserva y pausa simulación. Personal conserva tareas congeladas. Cerrar descarta delta y requiere una entrada nueva para moverse; una acción válida puede comenzar desde cero. Compras síncronas con saldo y nivel esperado: descuento único, máximo y protección ante doble pulsación.
 
 | Compra | Precio |
 | --- | --- |
 | Contratar cocinero (máximo dos; segundo requiere otro hornillo) | 100 / 220 |
 | Limpieza | 80 |
+| Cajero (máximo uno, requiere primer cocinero) | 150 |
 | Capacidad del equipo | 60 / 120 |
 | Rapidez del equipo | 80 / 160 |
 | Velocidad del hornillo | 100 / 200 |
@@ -146,10 +157,10 @@ DEV se oculta en un diálogo: **F2** en escritorio o mantener pulsado dinero **1
 
 Todos los relojes de simulación usan tiempo activo; sin progreso offline. Pérdida de foco/pestaña oculta pausa; reanudar descarta el delta anterior. Delta máximo 100 ms: por debajo de 10 FPS la simulación avanza más despacio.
 
-Reinicio: niveles globales, capacidades 8, acciones 1,5 s, cocción 4 s, gasto cero, demanda base sin activar, comentarios/temporizadores, clientes/filas, reservas, dos mesas y un hornillo iniciales, espera del primer movimiento, bloqueo de oficina, precios de compra, ambos cocineros y limpieza, asignaciones, inventarios, reservas de carga, producción, saldo, selección, progreso, feedback, posición y cámara. Cierra los diálogos y limpia entradas.
+Reinicio: niveles globales, capacidades 8, acciones 0,8 s, cocción 4 s, gasto cero, demanda base sin activar, comentarios/temporizadores, clientes/filas, reservas, dos mesas y un hornillo iniciales, espera del primer movimiento, bloqueos de oficina y tablón, precios de compra, ambos cocineros, limpieza y cajero, asignaciones, inventarios, reservas de carga, producción, saldo, selección, progreso, feedback, posición y cámara. Borra también la operación de caja, oferta/encargo/espera, comida empaquetada y caja dibujada, bonificación, objetivo introductorio y referencias de comandos. Los IDs de encargo no se reutilizan. Cierra los diálogos y limpia entradas.
 
 ## Arquitectura y alcance posterior
 
-Restaurant coordina clientes, mesas, compras, dinero, demanda y reservas; Production ejecuta transferencias con el Inventory del actor. Staff lleva dos profesiones concretas; CustomerComments administra señales ambientales con información de visibilidad suministrada por la escena. Reglas independientes de Phaser/DOM. Las vistas representan datos; sin ECS, bus global o sistema genérico de tareas.
+Restaurant coordina clientes, mesas, compras, dinero, demanda y reservas; Production ejecuta transferencias con el Inventory del actor. BulkOrders mantiene los estados de encargo y el objetivo introductorio; Staff lleva tres profesiones concretas; CustomerComments administra señales ambientales con información de visibilidad suministrada por la escena. Reglas independientes de Phaser/DOM. Las vistas representan datos; sin ECS, bus global o sistema genérico de tareas.
 
-No hay persistencia de partida: recargar comienza de cero; solo permanece la preferencia de idioma. No añadir nuevos locales, recetas, más de dos hornillos, niveles individuales, cajero, tutoriales, objetivos finales, arte final, publicidad, sonido o publicación. Sin push. Detenerse para revisión manual.
+No hay persistencia de partida: recargar comienza de cero; solo permanece la preferencia de idioma. No añadir nuevos locales, recetas, más de dos hornillos, niveles individuales, personal adicional, tutoriales, objetivos finales, arte final, publicidad, sonido o publicación. Sin push. Detenerse para revisión manual.

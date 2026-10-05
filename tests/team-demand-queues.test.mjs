@@ -51,18 +51,18 @@ test('El cocinero aprovecha la capacidad de ingredientes sin exigir un lote comp
 test('Acción del trabajador captura duración al comenzar; mejora no completa tarea ni cambia desplazamiento/consumo', () => {
   const r = make(); buy(r, 'cook');
   const worker = r.staff.get('cook');
-  until(r, () => worker.task?.elapsedMs >= 1000);
+  until(r, () => worker.task?.elapsedMs >= 500);
   const previous = worker.task, elapsed = previous.elapsedMs;
-  assert.equal(previous.durationMs, 1500);
+  assert.equal(previous.durationMs, 800);
   buy(r, 'actionSpeed'); buy(r, 'actionSpeed');
-  assert.equal(worker.task, previous); assert.equal(previous.elapsedMs, elapsed); assert.equal(previous.durationMs, 1500);
-  r.update(1500 - elapsed - 1); assert.equal(worker.inventory.count('ingredients'), 0);
+  assert.equal(worker.task, previous); assert.equal(previous.elapsedMs, elapsed); assert.equal(previous.durationMs, 800);
+  r.update(800 - elapsed - 1); assert.equal(worker.inventory.count('ingredients'), 0);
   r.update(1); assert.equal(worker.inventory.count('ingredients'), 1);
   until(r, () => worker.task?.durationMs !== null && worker.task?.durationMs !== undefined);
-  assert.equal(worker.task.durationMs, 900);
+  assert.equal(worker.task.durationMs, 400);
   buy(r, 'cleaner');
   Object.assign(r.table('table-1'), { cleanliness: 'dirty', dirtySince: 0 });
-  until(r, () => r.staff.get('cleaner').task?.durationMs === 900);
+  until(r, () => r.staff.get('cleaner').task?.durationMs === 400);
   assert.equal(r.options.speed, 90); assert.equal(r.options.eatingMs, 6000); assert.equal(r.production.cookingMs, 4000);
 });
 

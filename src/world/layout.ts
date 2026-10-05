@@ -3,14 +3,14 @@ import { CUSTOMERS, ROOM } from '../config.ts';
 
 export interface Point { x: number; y: number }
 export interface Rect extends Point { width: number; height: number }
-export type StationKind = 'fridge' | 'stove' | 'counter' | 'table' | 'bin';
+export type StationKind = 'fridge' | 'stove' | 'counter' | 'table' | 'bin' | 'packing';
 export interface StationData {
   id: string; name: Key; kind: StationKind;
   footprint: Rect; height: number; interaction: Point;
 }
 export interface InteractionZone {
   id: string; stationId: string; name: Key;
-  role: 'production' | 'deposit' | 'checkout' | 'table' | 'bin' | 'office';
+  role: 'production' | 'deposit' | 'checkout' | 'table' | 'bin' | 'office' | 'board' | 'withdraw' | 'packing';
   position: Point;
   access?: Rect;
 }
@@ -28,6 +28,9 @@ export const EXTRA_STOVE: StationData = {
 };
 export const CHECKOUT_PLAYER = { x: 715, y: 200 } as const;
 export const DEPOSIT_POINT = { x: 575, y: 282 } as const;
+export const WITHDRAW_POINT = { x: 852, y: 200 } as const;
+export const CASHIER_WORK = { x: 780, y: 195 } as const;
+export const ORDER_BOARD = { plaque: { x: 296, y: 85, width: 58, height: 62 }, interaction: { x: 325, y: 168 } } as const;
 export const CUSTOMER_SERVICE_POINTS = { 'dine-in': { x: 690, y: 375 }, takeaway: { x: 770, y: 375 } } as const;
 export const CUSTOMER_PUBLIC_Y = 340;
 // The doorway belongs to the wall; only its rug is a walkable interaction zone.
@@ -36,20 +39,28 @@ export const OFFICE = {
   rug: { x: 78, y: 446, width: 70, height: 64 },
   interaction: { x: 113, y: 478 },
 } as const;
+export const PACKING_STATION: StationData = {
+  id: 'packing', name: 'station.packing', kind: 'packing',
+  footprint: { x: 219, y: 145, width: 66, height: 28 }, height: 32, interaction: { x: 230, y: 190 },
+};
 export const STATIONS: readonly StationData[] = [
   { id: 'fridge', name: 'station.fridge', kind: 'fridge', footprint: { x: 110, y: 202, width: 90, height: 60 }, height: 92, interaction: { x: 155, y: 288 } },
   { id: 'stove', name: 'station.stove', kind: 'stove', footprint: { x: 270, y: 204, width: 100, height: 58 }, height: 45, interaction: { x: 320, y: 288 } },
   { id: 'counter', name: 'station.counter', kind: 'counter', footprint: { x: 610, y: 250, width: 210, height: 66 }, height: 43, interaction: CHECKOUT_PLAYER },
   ...tables.slice(0, 2),
+  PACKING_STATION,
   { id: 'bin', name: 'station.bin', kind: 'bin', footprint: { x: 112, y: 591, width: 52, height: 43 }, height: 43, interaction: { x: 190, y: 613 } },
 ];
 export function stationZone(station: StationData): InteractionZone {
   return { id: station.id, stationId: station.id, name: station.name,
-    role: station.kind === 'table' ? 'table' : station.kind === 'bin' ? 'bin' : 'production',
+    role: station.kind === 'packing' ? 'packing' : station.kind === 'table' ? 'table' : station.kind === 'bin' ? 'bin' : 'production',
     position: station.interaction };
 }
 export const INTERACTION_ZONES: readonly InteractionZone[] = [
   ...STATIONS.filter(s => s.kind !== 'counter').map(stationZone),
+  { id: 'board', stationId: 'board', name: 'station.board', role: 'board', position: ORDER_BOARD.interaction },
+  { id: 'withdraw', stationId: 'counter', name: 'station.withdraw', role: 'withdraw', position: WITHDRAW_POINT,
+    access: { x: 830, y: 160, width: 54, height: 80 } },
   { id: 'office', stationId: 'office', name: 'station.office', role: 'office', position: OFFICE.interaction },
   { id: 'deposit', stationId: 'counter', name: 'station.deposit', role: 'deposit', position: DEPOSIT_POINT },
   { id: 'checkout', stationId: 'counter', name: 'station.checkout', role: 'checkout', position: CHECKOUT_PLAYER,
@@ -98,4 +109,4 @@ export const TABLE_POSITIONS: Readonly<Record<string, { seat: Point }>> = Object
 export const CLEANING_WAIT_POINTS: Readonly<Record<string, Point>> = Object.fromEntries(
   tables.map((t, index) => [t.id, { x: 560 + (index % 2) * 60, y: 375 + Math.floor(index / 2) * 60 }]),
 );
-export const STAFF_POSITIONS = { cook: { x: 225, y: 300 }, 'cook-2': { x: 530, y: 330 }, cleaner: { x: 115, y: 735 } } as const;
+export const STAFF_POSITIONS = { cook: { x: 225, y: 300 }, 'cook-2': { x: 530, y: 330 }, cleaner: { x: 115, y: 735 }, cashier: { x: 640, y: 174 } } as const;

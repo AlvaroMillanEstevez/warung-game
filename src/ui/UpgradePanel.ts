@@ -7,7 +7,7 @@ import { isLanguage } from '../i18n/core';
 import type { Key, Message } from '../i18n';
 
 const NAMES: Record<UpgradeId, Key> = {
-  cook: 'upgrade.cook', cleaner: 'upgrade.cleaner', transport: 'upgrade.transport',
+  cashier: 'upgrade.cashier', cook: 'upgrade.cook', cleaner: 'upgrade.cleaner', transport: 'upgrade.transport',
   actionSpeed: 'upgrade.actionSpeed', stoveSpeed: 'upgrade.stoveSpeed', tables: 'upgrade.tables', stove: 'upgrade.stove',
 };
 export class UpgradePanel {
@@ -53,6 +53,7 @@ export class UpgradePanel {
   private effect(id: UpgradeId, level: number): string {
     let message: Message;
     switch (id) {
+      case 'cashier': message = { key: 'effect.cashier', params: { seconds: this.restaurant.teamActionMs / 1000 } }; break;
       case 'cook': message = { key: level === 2 ? 'effect.cook.assigned' : 'effect.cook.shared',
         params: { count: level, max: UPGRADES.cook.prices.length, capacity: this.restaurant.teamCapacity, target: STAFF.cookStockTarget } }; break;
       case 'cleaner': message = { key: level ? 'effect.cleaner.hired' : 'effect.cleaner',
