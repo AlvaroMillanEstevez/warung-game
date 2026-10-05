@@ -1,5 +1,9 @@
 import Phaser from 'phaser';
+import { i18n, t } from '../i18n';
+import type { Message } from '../i18n';
 import { INTERACTION, PLAYER } from '../config';
+import { PALETTE as C, VISUAL as V, cssColor } from '../visuals/theme';
+import { label } from '../visuals/drawing';
 import { Controls } from '../entities/Controls';
 import { Player } from '../entities/Player';
 import { EmployeeView } from '../entities/EmployeeView';
@@ -32,6 +36,7 @@ export class RestaurantScene extends Phaser.Scene {
   private readonly restaurant = new Restaurant();
   private readonly dwell = new DwellInteraction();
   private messageRemainingMs = 0;
+  private noticeMessage: Message | null = null;
   private lastContext = '';
   private discardNextDelta = true;
   private officeNeedsExit = false;
@@ -43,13 +48,13 @@ export class RestaurantScene extends Phaser.Scene {
 
   create(): void {
     this.restaurant.reset(); this.officeNeedsExit = false;
-    this.exterior = this.add.graphics().setDepth(-200);
+    this.exterior = this.add.graphics().setDepth(V.depth.exterior);
     drawRoom(this);
     this.syncLayout();
     this.player = new Player(this);
-    this.notice = this.add.text(0, 0, '', { fontFamily: 'Arial, sans-serif', fontSize: '11px',
-      color: '#fff7e7', backgroundColor: '#315e50', padding: { x: 7, y: 5 },
-      wordWrap: { width: 180 }, align: 'center' }).setOrigin(.5, 1).setDepth(2000).setVisible(false);
+    this.notice = label(this, 0, 0, '', 11, C.cream).setStyle({
+      backgroundColor: cssColor(C.greenDark), padding: { x: 9, y: 6 },
+      wordWrap: { width: 180 }, align: 'center' }).setOrigin(.5, 1).setDepth(V.depth.feedback).setVisible(false);
     this.controls = new Controls(this.game.canvas, discardFrame => {
       this.cancelInteraction();
       if (discardFrame) this.discardNextDelta = true;
@@ -59,14 +64,20 @@ export class RestaurantScene extends Phaser.Scene {
     };
     this.upgrades = new UpgradePanel(this.restaurant, () => this.player.position, onToggle, () => {
       this.syncLayout();
-      if (this.restaurant.takeDemandNotice()) this.showMessage('¡El warung atrae más clientes!');
+      if (this.restaurant.takeDemandNotice()) this.showMessage('notice.demand');
       this.renderState();
     });
     this.debug = new DebugPanel(this.restaurant, onToggle);
     this.resizeCamera();
     this.scale.on(Phaser.Scale.Events.RESIZE, this.resizeCamera, this);
     this.resetButton.addEventListener('click', this.resetTest);
+    const unsubscribeLanguage = i18n.subscribe(() => {
+      if (this.noticeMessage) this.notice.setText(t(this.noticeMessage));
+      this.player.refreshLanguage();
+      this.renderState();
+    });
     const cleanup = (): void => {
+      unsubscribeLanguage();
       this.upgrades.destroy(); this.debug.destroy(); this.controls.destroy();
       this.scale.off(Phaser.Scale.Events.RESIZE, this.resizeCamera, this);
       this.resetButton.removeEventListener('click', this.resetTest);
@@ -119,19 +130,19 @@ export class RestaurantScene extends Phaser.Scene {
       const before = this.restaurant.production.inventory;
       const command = this.pending.command, result = this.restaurant.perform(command);
       this.player.showTransfer(before, this.restaurant.production.inventory);
-      if (result && command.kind === 'checkout') this.showMessage('+' + this.restaurant.options.price + ' monedas');
+      if (result && command.kind === 'checkout') this.showMessage({ key: 'notice.sale', params: { price: this.restaurant.options.price } });
       this.pending = null;
     }
     const camera = this.cameras.main.worldView;
     const loads = [this.player.cargoBounds, ...this.restaurant.staff.employees.map(worker => {
-      const height = Math.max(...Object.values(worker.inventory.state).filter((n): n is number => typeof n === 'number')) * 5.5;
-      return height ? { x: worker.position.x + 20, y: worker.position.y - 20 - height, width: 48, height: height + 12 } : null;
+      const height = Math.max(...Object.values(worker.inventory.state).filter((n): n is number => typeof n === 'number')) * V.cargo.spacing;
+      return height ? { x: worker.position.x + V.cargo.side - V.cargo.width / 2, y: worker.position.y + V.cargo.baseY - height, width: V.cargo.width, height: height + 12 } : null;
     })].filter(rect => rect !== null);
     const visible = new Set(this.restaurant.customers.filter(c =>
-      c.position.x > camera.x + 55 && c.position.x < camera.right - 55 &&
-      c.position.y > camera.y + 105 && c.position.y < camera.bottom &&
-      !loads.some(rect => c.position.x + 70 > rect.x && c.position.x - 70 < rect.x + rect.width &&
-        c.position.y - 50 > rect.y && c.position.y - 105 < rect.y + rect.height)).map(c => c.id));
+      c.position.x > camera.x + V.comment.halfWidth && c.position.x < camera.right - V.comment.halfWidth &&
+      c.position.y > camera.y + V.comment.top && c.position.y < camera.bottom &&
+      !loads.some(rect => c.position.x + V.comment.halfWidth > rect.x && c.position.x - V.comment.halfWidth < rect.x + rect.width &&
+        c.position.y - V.comment.bottom > rect.y && c.position.y - V.comment.top < rect.y + rect.height)).map(c => c.id));
     this.restaurant.comments.update(this.restaurant.elapsedMs, this.restaurant.customers, visible);
     this.renderState();
   }
@@ -144,7 +155,7 @@ export class RestaurantScene extends Phaser.Scene {
     this.upgrades.close(); this.debug.close(); this.controls.reset(); this.restaurant.reset();
     this.syncLayout(); this.player.clearFeedback(); this.dwell.reset();
     this.pending = null; this.selected = null; this.lastContext = ''; this.discardNextDelta = true; this.officeNeedsExit = false;
-    this.messageRemainingMs = 0; this.notice.setVisible(false);
+    this.messageRemainingMs = 0; this.noticeMessage = null; this.notice.setVisible(false);
     Object.assign(this.player.position, PLAYER.spawn);
     this.player.update({ x: 0, y: 0 }, 0, this.obstacles);
     this.resizeCamera(); this.renderState();
@@ -155,8 +166,9 @@ export class RestaurantScene extends Phaser.Scene {
     this.controls.reset();
     drawExterior(this.exterior, frameRestaurant(this.cameras.main, this.scale.width, this.scale.height, this.player.position));
   }
-  private showMessage(message: string): void {
-    this.notice.setText(message).setVisible(true); this.messageRemainingMs = INTERACTION.messageDuration;
+  private showMessage(message: Message): void {
+    this.noticeMessage = message;
+    this.notice.setText(t(message)).setVisible(true); this.messageRemainingMs = INTERACTION.messageDuration;
   }
   private syncLayout(): void {
     if (this.restaurant.stations.map(s => s.id).join(',') === this.stations.map(s => s.data.id).join(',')) return;
@@ -169,7 +181,7 @@ export class RestaurantScene extends Phaser.Scene {
   private renderState(): void {
     const r = this.restaurant;
     this.player.setInventory(r.production.inventory);
-    this.notice?.setPosition(this.player.position.x, this.player.position.y - Math.max(88, this.player.cargoHeight + 45));
+    this.notice?.setPosition(this.player.position.x, this.player.position.y - Math.max(100, this.player.cargoHeight + 58));
     for (const station of this.stations) {
       station.setSelected(station.data.id === this.selected?.stationId); station.showState(r);
     }
@@ -179,7 +191,8 @@ export class RestaurantScene extends Phaser.Scene {
     for (const customer of r.customers) {
       let view = this.customerViews.get(customer.id);
       if (!view) { view = new CustomerView(this, customer); this.customerViews.set(customer.id, view); }
-      view.update(customer, r.comments.text(customer.id));
+      const comment = r.comments.text(customer.id);
+      view.update(customer, comment ? t(comment) : null);
     }
     const staffIds = new Set<string>(r.staff.employees.map(w => w.id));
     for (const [id, view] of this.employeeViews) if (!staffIds.has(id)) { view.destroy(); this.employeeViews.delete(id); }
@@ -188,7 +201,7 @@ export class RestaurantScene extends Phaser.Scene {
       if (!view) { view = new EmployeeView(this, worker); this.employeeViews.set(worker.id, view); }
       view.update(worker);
     }
-    const money = r.money + ' monedas';
+    const money = t('app.money', { count: r.money });
     if (this.moneyElement.textContent !== money) this.moneyElement.textContent = money;
   }
 }

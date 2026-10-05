@@ -23,7 +23,7 @@ test('Segundo cocinero: requisito operativo, precio, descuento único, máximo d
   const r = new Restaurant(); r.coins = 5000;
   buy(r, 'transport'); buy(r, 'actionSpeed'); buy(r, 'cook');
   const before = r.money, spent = r.totalSpent;
-  assert.match(r.purchaseState('cook').problem, /segundo hornillo/);
+  assert.equal(r.purchaseState('cook').problem, 'purchase.secondCook');
   assert.equal(r.purchaseState('cook').price, 220);
   assert.equal(r.purchase('cook', 1), false);
   assert.equal(r.money, before); assert.equal(r.totalSpent, spent);
@@ -32,7 +32,7 @@ test('Segundo cocinero: requisito operativo, precio, descuento único, máximo d
   buy(r, 'stove'); buy(r, 'cook');
   assert.equal(r.money, before - 180 - 220); assert.equal(r.totalSpent, spent + 400);
   assert.equal(r.purchase('cook', 1), false); assert.equal(r.purchase('cook', 2), false);
-  assert.equal(r.purchaseState('cook').problem, 'Equipo completo');
+  assert.equal(r.purchaseState('cook').problem, 'limit.cooks');
   for (const worker of r.staff.employees) {
     assert.equal(worker.role, 'cook');
     assert.deepEqual(worker.inventory.state.limits, { ingredients: 12, meals: 12 });

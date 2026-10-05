@@ -1,31 +1,37 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#315e50" />
-    <meta name="description" content="Warung Kita: prepara nasi goreng y cuida tu pequeño restaurante." />
+    <meta name="theme-color" content="#267568" />
+    <meta name="description" content="" />
     <link rel="icon" href="data:," />
-    <title>Warung Kita · Tu pequeño restaurante</title>
+    <title>Warung Kita</title>
   </head>
   <body>
     <main class="app">
-      <div id="game" tabindex="0" role="application" aria-label="Restaurante. Muévete con WASD, flechas o arrastrando. Quédate quieto junto a las estaciones para actuar."></div>
-      <div class="hud" aria-label="Restaurante">
-        <button id="money-display" data-ui type="button" aria-label="Dinero disponible"><span aria-hidden="true">●</span> <strong id="money-status">0 monedas</strong></button>
+      <div id="game" tabindex="0" role="application" data-i18n-aria="app.controls"></div>
+      <div class="hud" data-i18n-aria="app.restaurant">
+        <button id="money-display" data-ui type="button" data-i18n-aria="app.moneyLabel"><span class="coin" aria-hidden="true"></span> <strong id="money-status"></strong></button>
       </div>
       <dialog id="upgrades-panel" data-ui aria-labelledby="upgrades-title">
-        <header class="upgrades-heading"><div><h2 id="upgrades-title">Tu local, paso a paso</h2><p id="upgrade-money"></p></div><button id="close-upgrades" type="button">Cerrar</button></header>
-        <p class="upgrades-intro">Mejoras · el restaurante está en pausa</p>
+        <header class="upgrades-heading"><div><span class="eyebrow" data-i18n="office.eyebrow"></span><h2 id="upgrades-title" data-i18n="office.title"></h2><p id="upgrade-money"></p></div><button id="close-upgrades" type="button" data-i18n="common.close"></button></header>
+        <div class="office-settings"><p class="upgrades-intro" data-i18n="office.intro"></p>
+          <label class="language-setting"><span data-i18n="office.language"></span><select id="language-select">
+            <option value="es" lang="es" data-i18n="language.es"></option>
+            <option value="en" lang="en" data-i18n="language.en"></option>
+            <option value="id" lang="id" data-i18n="language.id"></option>
+          </select></label>
+        </div>
         <div id="upgrade-list"></div>
         <p id="upgrade-feedback" role="status" aria-live="polite"></p>
       </dialog>
       <dialog id="debug-panel" data-ui aria-labelledby="debug-title">
-        <header class="upgrades-heading"><h2 id="debug-title">Pruebas de desarrollo</h2><button id="close-debug" type="button">Cerrar</button></header>
+        <header class="upgrades-heading"><h2 id="debug-title" data-i18n="debug.title"></h2><button id="close-debug" type="button" data-i18n="common.close"></button></header>
         <pre id="debug-state"></pre>
-        <button id="reset-test" type="button">Reiniciar prueba</button>
+        <button id="reset-test" type="button" data-i18n="debug.reset"></button>
       </dialog>
-      <div id="pause-notice" class="pause-notice" hidden>En pausa · vuelve al local para continuar</div>
+      <div id="pause-notice" class="pause-notice" hidden data-i18n="app.paused"></div>
       <div id="drag-indicator" aria-hidden="true" hidden><span id="drag-knob"></span></div>
     </main>
     <script type="module" src="/src/main.ts"></script>

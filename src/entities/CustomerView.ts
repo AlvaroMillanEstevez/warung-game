@@ -1,52 +1,45 @@
 import Phaser from 'phaser';
-import { COLORS as C } from '../config';
+import { PALETTE as C, VISUAL as V, cssColor } from '../visuals/theme';
+import { CharacterArt } from '../visuals/CharacterArt';
+import { label, softShadow, meal } from '../visuals/drawing';
 import type { Customer } from '../simulation/Restaurant';
 
 export class CustomerView {
   private readonly visual: Phaser.GameObjects.Container;
-  private readonly shadow: Phaser.GameObjects.Ellipse;
+  private readonly shadow: Phaser.GameObjects.Graphics;
   private readonly label: Phaser.GameObjects.Text;
-  private readonly body: Phaser.GameObjects.Graphics;
-  private lastPhase = '';
-
+  private readonly body: CharacterArt;
+  private readonly carried: Phaser.GameObjects.Graphics;
+  private lastCarry = '';
   constructor(scene: Phaser.Scene, customer: Readonly<Customer>) {
-    this.shadow = scene.add.ellipse(0, 0, 28, 12, C.shadow, 0.16).setDepth(-1);
-    this.body = scene.add.graphics();
-    this.label = scene.add.text(0, -53, '', {
-      fontFamily: 'Arial, sans-serif', fontSize: '10px', color: '#315e50',
-      backgroundColor: '#fff7e7', wordWrap: { width: 125 },
-      padding: { x: 4, y: 3 }, align: 'center',
-    }).setOrigin(0.5, 1);
-    this.visual = scene.add.container(0, 0, [this.body, this.label]);
+    this.shadow = scene.add.graphics().setDepth(V.depth.groundShadow); softShadow(this.shadow, 0, 2, 27, 10);
+    this.body = new CharacterArt(scene, 'customer', customer.number % 4);
+    this.carried = scene.add.graphics();
+    this.label = label(scene, 0, -79, '', 11, C.greenDark)
+      .setStyle({ backgroundColor: cssColor(C.cream), wordWrap: { width: 122 }, padding: { x: 7, y: 5 }, align: 'center' })
+      .setOrigin(.5, 1);
+    this.visual = scene.add.container(customer.position.x, customer.position.y, [this.body.visual, this.carried, this.label]);
     this.update(customer);
   }
-
   update(customer: Readonly<Customer>, comment: string | null = null): void {
-    this.label.setText(comment ?? '').setVisible(comment !== null);
+    if (this.label.text !== (comment ?? '')) this.label.setText(comment ?? '');
+    this.label.setVisible(comment !== null);
     const { x, y } = customer.position;
+    this.body.moveFrom(this.visual, customer.position, customer.phase === 'eating');
     this.visual.setPosition(x, y).setDepth(y);
-    this.shadow.setPosition(x, y + 2);
-    if (this.lastPhase === customer.phase) return;
-    this.lastPhase = customer.phase;
-    const seated = customer.phase === 'eating';
-    const g = this.body.clear();
-    g.fillStyle(C.woodDark).fillRoundedRect(-9, -10, 7, 12, 3).fillRoundedRect(2, -10, 7, 12, 3);
-    g.fillStyle(customer.intent === 'takeaway' ? C.coral : C.green).fillRoundedRect(-13, -30, 26, seated ? 27 : 23, 7);
-    g.fillStyle(C.skin).fillCircle(-13, -15, 4).fillCircle(13, -15, 4).fillCircle(0, -37, 11);
-    g.fillStyle(C.hair).fillEllipse(0, -44, 23, 13);
-    g.fillStyle(C.hair).fillCircle(-4, -37, 1.3).fillCircle(4, -37, 1.3);
-    if (customer.intent === 'takeaway' && customer.phase === 'leaving') {
-      g.fillStyle(C.cream).fillRoundedRect(8, -17, 14, 17, 2);
-      g.lineStyle(2, C.wood).strokeRoundedRect(11, -21, 8, 7, 2);
+    this.shadow.setPosition(x, y);
+    const takeaway = customer.intent === 'takeaway' && customer.phase === 'leaving';
+    const key = [takeaway, customer.carryingMeal].join(':');
+    if (key === this.lastCarry) return;
+    this.lastCarry = key;
+    const g = this.carried.clear();
+    if (takeaway) {
+      g.fillStyle(C.woodLight).fillRoundedRect(11, -22, 17, 20, 4);
+      g.fillStyle(C.cream).fillRoundedRect(12, -22, 15, 4, 2);
+      g.lineStyle(1.5, C.woodDark).strokeRoundedRect(15, -27, 9, 8, 3);
+      g.fillStyle(C.green).fillEllipse(20, -13, 7, 10);
     }
-    if (customer.carryingMeal) {
-      g.fillStyle(C.cream).fillEllipse(14, -13, 23, 12);
-      g.fillStyle(C.woodLight).fillEllipse(14, -14, 17, 8);
-      g.fillStyle(C.cream).fillEllipse(16, -15, 8, 5);
-      g.fillStyle(C.gold).fillCircle(16, -15, 2);
-    }
-
+    if (customer.carryingMeal) meal(g, 22, -17, .9);
   }
-
   destroy(): void { this.visual.destroy(); this.shadow.destroy(); }
 }

@@ -1,3 +1,4 @@
+import type { Key } from '../i18n/core.ts';
 import { COMMENTS } from '../config.ts';
 import type { Customer } from './Restaurant.ts';
 
@@ -6,7 +7,7 @@ interface CommentState {
   participates: boolean;
   lastSpokeAt: number;
   untilMs: number;
-  text: string | null;
+  text: Key | null;
 }
 export class CustomerComments {
   private readonly states = new Map<string, CommentState>();
@@ -19,7 +20,7 @@ export class CustomerComments {
       participates: this.random() < COMMENTS.participationChance, lastSpokeAt: -Infinity, untilMs: 0, text: null,
     });
   }
-  text(id: string): string | null { return this.states.get(id)?.text ?? null; }
+  text(id: string): Key | null { return this.states.get(id)?.text ?? null; }
   remove(id: string): void { this.states.delete(id); }
   reset(): void { this.states.clear(); this.lastCheckMs = 0; }
   update(now: number, customers: readonly Readonly<Customer>[], visible: ReadonlySet<string>): void {

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { COLORS as C } from '../config';
+import { PALETTE as C, VISUAL as V } from '../visuals/theme';
+import { checkmark, label, meal, progressBar, softShadow } from '../visuals/drawing';
 import { TABLE_POSITIONS } from './layout';
 import type { StationData } from './layout';
 import type { Restaurant } from '../simulation/Restaurant';
@@ -7,154 +8,170 @@ import type { Restaurant } from '../simulation/Restaurant';
 export class Station {
   readonly visual: Phaser.GameObjects.Container;
   private readonly highlight: Phaser.GameObjects.Graphics;
-  private readonly shadow: Phaser.GameObjects.Ellipse;
+  private readonly shadow: Phaser.GameObjects.Graphics;
   private chair?: Phaser.GameObjects.Graphics;
   private selected = false;
   private readonly productionArt: Phaser.GameObjects.Graphics;
   private lastProductionKey = '';
+  private lastReady = 0;
+  private readyAt = -Infinity;
 
   constructor(scene: Phaser.Scene, readonly data: StationData) {
-    const { x, y, width: w, height: d } = data.footprint;
-    const lift = data.height;
-    this.shadow = scene.add.ellipse(x + w / 2 + 5, y + d - 2, w + 16, 25, C.shadow, 0.15).setDepth(-2);
+    const { x, y, width: w, height: d } = data.footprint, lift = data.height;
+    this.shadow = scene.add.graphics().setDepth(V.depth.groundShadow);
+    softShadow(this.shadow, x + w / 2 + 3, y + d - 1, w + 4, 21);
     const g = scene.add.graphics();
     this.visual = scene.add.container(x, y, [g]).setDepth(y + d);
-    const tabletop = data.kind === 'table';
-    const front = data.kind === 'fridge' ? C.green : data.kind === 'stove' ? C.metal : data.kind === 'bin' ? C.greenDark : C.wood;
-    const top = data.kind === 'fridge' ? C.greenLight : data.kind === 'stove' ? C.cream : data.kind === 'bin' ? C.greenLight : C.woodLight;
-    if (tabletop) {
+    const table = data.kind === 'table';
+    const front = data.kind === 'fridge' ? C.green : data.kind === 'counter' ? C.green :
+      data.kind === 'stove' ? C.metal : data.kind === 'bin' ? C.greenDark : C.wood;
+    const top = data.kind === 'fridge' ? C.greenLight : data.kind === 'stove' ? C.cream :
+      data.kind === 'bin' ? C.greenLight : C.woodLight;
+    if (table) {
       const seat = TABLE_POSITIONS[data.id]!.seat;
-      this.chair = scene.add.graphics().setDepth(-90);
-      this.chair.fillStyle(C.woodDark).fillRoundedRect(seat.x - 11, seat.y - 5, 22, 10, 3);
-      this.chair.fillStyle(C.woodLight).fillEllipse(seat.x, seat.y - 8, 28, 15);
-      g.fillStyle(C.woodDark).fillRoundedRect(10, d - lift - 6, 10, lift + 6, 2).fillRoundedRect(w - 20, d - lift - 6, 10, lift + 6, 2);
-      g.fillStyle(C.woodDark).fillRoundedRect(4, -lift + 9, 8, lift + 4, 2).fillRoundedRect(w - 12, -lift + 9, 8, lift + 4, 2);
-      g.fillStyle(C.wood).fillRoundedRect(0, -lift + 8, w, d, 8);
+      this.chair = scene.add.graphics().setDepth(V.depth.floorText + 1);
+      softShadow(this.chair, seat.x, seat.y + 7, 29, 10);
+      this.chair.fillStyle(C.woodDark).fillRoundedRect(seat.x - 10, seat.y - 2, 6, 15, 3)
+        .fillRoundedRect(seat.x + 4, seat.y - 2, 6, 15, 3);
+      this.chair.fillStyle(C.wood).fillRoundedRect(seat.x - 16, seat.y - 14, 32, 17, 7);
+      this.chair.fillStyle(C.greenLight).fillRoundedRect(seat.x - 15, seat.y - 18, 30, 17, 7);
+      this.chair.lineStyle(1, C.cream, .4).strokeRoundedRect(seat.x - 11, seat.y - 15, 22, 10, 5);
+      for (const bx of [10, w - 20]) {
+        g.fillStyle(C.woodDark).fillRoundedRect(bx, d - lift - 6, 10, lift + 5, 4);
+        g.fillStyle(C.wood).fillRoundedRect(bx, d - lift, 4, lift - 5, 2);
+      }
+      g.fillStyle(C.wood).fillRoundedRect(0, -lift + 7, w, d, V.radius.furniture);
     } else {
-      g.fillStyle(front).fillRoundedRect(0, d - lift - 6, w, lift + 6, 5);
+      g.fillStyle(C.woodDark).fillRoundedRect(9, d - 9, w - 18, 10, 4);
+      g.fillStyle(front).fillRoundedRect(0, d - lift - 7, w, lift + 5, V.radius.furniture);
+      g.fillStyle(C.shadow, .09).fillRoundedRect(w - 10, d - lift, 10, lift - 8, 4);
+      g.fillStyle(C.cream, .16).fillRoundedRect(3, d - lift, 3, lift - 14, 1.5);
     }
-    g.fillStyle(top).fillRoundedRect(0, -lift, w, d, tabletop ? 8 : 5);
-    g.lineStyle(2, C.cream, 0.25).lineBetween(5, -lift + 3, w - 5, -lift + 3);
+    g.fillStyle(top).fillRoundedRect(0, -lift, w, d, V.radius.furniture);
+    g.lineStyle(V.stroke.normal, C.cream, .50).strokeRoundedRect(3, -lift + 3, w - 6, d - 7, V.radius.furniture - 2);
 
     switch (data.kind) {
       case 'fridge': {
-        g.lineStyle(2, C.greenDark, 0.6).lineBetween(4, d - lift + 28, w - 4, d - lift + 28);
-        g.fillStyle(C.cream).fillRoundedRect(w - 17, d - lift + 7, 5, 15, 2).fillRoundedRect(w - 17, d - lift + 40, 5, 27, 2);
-        g.fillStyle(C.cream, 0.85).fillRoundedRect(12, d - lift + 41, 25, 25, 2);
-        g.fillStyle(C.coral).fillCircle(24, d - lift + 40, 3);
-        g.lineStyle(2, C.greenLight).lineBetween(17, d - lift + 50, 31, d - lift + 50).lineBetween(17, d - lift + 57, 27, d - lift + 57);
-        g.fillStyle(C.shadow, 0.2).fillRect(9, d - 5, w - 18, 3);
+        const frontY = d - lift;
+        g.fillStyle(C.greenDark, .24).fillRoundedRect(9, frontY + 4, w - 20, 27, 7)
+          .fillRoundedRect(9, frontY + 36, w - 20, lift - 48, 7);
+        g.fillStyle(C.greenLight, .32).fillRoundedRect(12, frontY + 6, w - 26, 22, 6);
+        g.fillStyle(C.cream).fillRoundedRect(w - 23, frontY + 11, 6, 13, 3)
+          .fillRoundedRect(w - 23, frontY + 44, 6, 26, 3);
+        g.fillStyle(C.cream).fillRoundedRect(18, frontY + 46, 24, 28, 5);
+        g.fillStyle(C.coral).fillCircle(30, frontY + 46, 3);
+        g.fillStyle(C.green).fillEllipse(26, frontY + 59, 5, 9).fillEllipse(32, frontY + 61, 8, 4);
+        g.lineStyle(1.5, C.woodLight).lineBetween(23, frontY + 68, 36, frontY + 68);
+        g.fillStyle(C.cream, .17).fillRoundedRect(8, -lift + 8, w - 16, 8, 4);
         break;
       }
       case 'stove': {
-        for (const bx of [24, 74]) {
-          for (const by of [-lift + 16, -lift + 41]) {
-            g.fillStyle(C.greenDark).fillEllipse(bx, by, 24, 17);
-            g.lineStyle(2, C.metal).strokeEllipse(bx, by, 14, 9);
-          }
+        for (const bx of [24, 74]) for (const by of [-lift + 16, -lift + 41]) {
+          g.fillStyle(C.wallShade).fillEllipse(bx + 1, by + 2, 31, 20);
+          g.fillStyle(C.greenDark).fillEllipse(bx, by, 27, 17);
+          g.lineStyle(1.5, C.metal).strokeEllipse(bx, by, 18, 11);
+          g.fillStyle(C.ink).fillEllipse(bx, by, 10, 6);
         }
-        g.fillStyle(C.greenDark).fillRoundedRect(12, d - lift + 16, w - 24, 20, 4);
-        for (const bx of [20, 40, 60, 80]) g.fillStyle(C.cream).fillCircle(bx, d - lift + 7, 3);
+        g.fillStyle(C.greenDark).fillRoundedRect(15, d - lift + 18, w - 30, 17, 6);
+        g.fillStyle(C.cream, .15).fillRoundedRect(20, d - lift + 21, w - 40, 3, 1.5);
+        for (const bx of [22, 41, 60, 79]) {
+          g.fillStyle(C.woodDark, .3).fillCircle(bx, d - lift + 9, 4);
+          g.fillStyle(C.cream).fillCircle(bx, d - lift + 8, 3.4);
+          g.lineStyle(1, C.greenDark).lineBetween(bx, d - lift + 6, bx, d - lift + 8);
+        }
         break;
       }
       case 'counter': {
-        for (let bx = 10; bx < w; bx += 20) g.lineStyle(1, C.woodDark, 0.55).lineBetween(bx, d - lift + 3, bx, d - 3);
-        g.fillStyle(C.green).fillRoundedRect(28, d - lift + 7, w - 56, 23, 3);
-        const sign = scene.add.text(w / 2, d - lift + 19, 'WARUNG KITA', { fontFamily: 'Georgia, serif', fontSize: '13px', color: '#fff7e7', letterSpacing: 2 }).setOrigin(0.5);
-        this.visual.add(sign);
-        g.fillStyle(C.cream).fillRoundedRect(17, -lift + 16, 68, 30, 4);
-        g.lineStyle(1, C.wood).strokeRoundedRect(22, -lift + 21, 58, 20, 3);
-        g.fillStyle(C.coral).fillRoundedRect(w - 40, -lift + 20, 19, 18, 3);
-        g.fillStyle(C.green).fillEllipse(w - 38, -lift + 13, 14, 7).fillEllipse(w - 25, -lift + 10, 12, 7).fillEllipse(w - 30, -lift + 5, 7, 18);
+        g.fillStyle(C.greenDark).fillRoundedRect(15, d - lift + 7, w - 30, 27, 9);
+        for (const bx of [25, w - 25]) {
+          g.fillStyle(C.woodLight).fillEllipse(bx, d - lift + 20, 4, 8).fillEllipse(bx, d - lift + 20, 8, 4);
+        }
+        this.visual.add(label(scene, w / 2, d - lift + 20, 'Warung Kita', 14, C.cream).setFontStyle('bold').setOrigin(.5));
+        // Serving tray left; small till on the rear right, aligned with the existing checkout.
+        g.fillStyle(C.wood).fillRoundedRect(12, -lift + 11, 119, 40, 9);
+        g.fillStyle(C.cream).fillRoundedRect(15, -lift + 12, 113, 35, 7);
+        g.lineStyle(1, C.wallShade).strokeRoundedRect(20, -lift + 17, 103, 25, 5);
+        g.fillStyle(C.greenDark).fillRoundedRect(w - 63, -lift + 13, 43, 28, 7);
+        g.fillStyle(C.metal).fillRoundedRect(w - 59, -lift + 7, 35, 21, 5);
+        g.fillStyle(C.greenDark).fillRoundedRect(w - 55, -lift + 10, 27, 12, 3);
+        g.lineStyle(2, C.cream).lineBetween(w - 49, -lift + 15, w - 36, -lift + 15);
+        for (let bx = w - 55; bx < w - 30; bx += 8)
+          g.fillStyle(C.cream).fillRoundedRect(bx, -lift + 32, 5, 3, 1);
         break;
       }
       case 'table': {
-        g.lineStyle(1, C.wood, 0.5).lineBetween(w / 2, -lift + 5, w / 2, d - lift - 5);
-        g.fillStyle(C.cream, 0.9).fillRoundedRect(16, -lift + 16, 30, 28, 2);
-        g.fillStyle(C.green).fillRoundedRect(58, -lift + 22, 20, 22, 3);
-        g.fillStyle(C.cream).fillRect(61, -lift + 17, 14, 12);
-        g.lineStyle(1, C.wallShade).lineBetween(64, -lift + 20, 73, -lift + 20);
+        // Rounded slab, quiet grain and one folded woven napkin.
+        for (const by of [-lift + 18, -lift + 40])
+          g.lineStyle(1, C.wood, .24).lineBetween(14, by, w - 14, by - 3);
+        g.fillStyle(C.cream).fillRoundedRect(67, -lift + 19, 22, 24, 5);
+        g.fillStyle(C.coral, .65).fillRoundedRect(70, -lift + 20, 3, 22, 1.5);
+        g.lineStyle(1, C.woodLight).lineBetween(77, -lift + 23, 85, -lift + 23).lineBetween(77, -lift + 39, 85, -lift + 39);
         break;
       }
       case 'bin': {
-        g.fillStyle(C.greenDark).fillRoundedRect(5, -lift + 5, w - 10, d - 10, 7);
-        g.fillStyle(C.shadow).fillRoundedRect(13, -lift + 15, w - 26, 9, 4);
-        g.lineStyle(2, C.greenLight).lineBetween(12, d - lift + 9, 15, d - 6).lineBetween(w - 12, d - lift + 9, w - 15, d - 6);
+        g.fillStyle(C.greenDark).fillRoundedRect(8, -lift + 8, w - 16, d - 17, 9);
+        g.fillStyle(C.shadow, .35).fillRoundedRect(12, -lift + 12, w - 24, 10, 5);
+        g.lineStyle(2, C.metal).strokeRoundedRect(18, d - lift + 13, 16, 16, 5);
+        g.lineStyle(2, C.metal).lineBetween(21, d - lift + 20, 23, d - lift + 24)
+          .lineBetween(28, d - lift + 24, 31, d - lift + 19);
+        g.fillStyle(C.metal).fillRoundedRect(18, d - 6, 18, 5, 2.5);
         break;
       }
     }
-    this.highlight = scene.add.graphics().setDepth(y + d + 0.1);
-    this.highlight.lineStyle(3, C.highlight).strokeRoundedRect(x - 3, y - lift - 3, w + 6, d + lift + 6, 7).setVisible(false);
-    this.productionArt = scene.add.graphics();
-    this.visual.add(this.productionArt);
-
-
+    this.highlight = scene.add.graphics().setDepth(y + d + .1);
+    this.highlight.lineStyle(V.stroke.emphasis, C.green, .6)
+      .strokeRoundedRect(x - 3, y - lift - 3, w + 6, d + lift + 6, V.radius.furniture + 3).setVisible(false);
+    this.productionArt = scene.add.graphics(); this.visual.add(this.productionArt);
   }
-
   showState(restaurant: Restaurant): void {
     if (!['stove', 'counter', 'table'].includes(this.data.kind)) return;
-    const production = restaurant.production;
-    const table = restaurant.table(this.data.id);
+    const production = restaurant.production, table = restaurant.table(this.data.id);
     const customer = table?.customerId ? restaurant.customer(table.customerId) : undefined;
-    const slots = production.slotsFor(this.data.id);
-    const stoveKey = slots.map(slot => slot.status === 'cooking' ? Math.round(slot.elapsedMs / slot.durationMs * 100) : slot.status).join(',');
-    const key = [stoveKey, production.availablePortions,
-      table?.cleanliness, customer?.id, customer?.phase].join(':');
+    const slots = production.slotsFor(this.data.id), readyCount = slots.filter(slot => slot.status === 'ready').length;
+    if (readyCount > this.lastReady) this.readyAt = restaurant.elapsedMs;
+    this.lastReady = readyCount;
+    // Tiny settling lift only on becoming ready, using the active simulation clock.
+    const settle = Math.max(0, 1 - (restaurant.elapsedMs - this.readyAt) / V.motion.settleMs);
+    this.productionArt.y = -Math.sin(settle * Math.PI) * 1.5;
+    const stoveKey = slots.map(slot => slot.status === 'cooking' ? Math.floor(slot.elapsedMs / slot.durationMs * 50) : slot.status).join(',');
+    const key = [stoveKey, production.availablePortions, table?.cleanliness, customer?.id, customer?.phase].join(':');
     if (key === this.lastProductionKey) return;
     this.lastProductionKey = key;
-    const g = this.productionArt;
-
-    const lift = this.data.height;
-    g.clear();
+    const g = this.productionArt.clear(), lift = this.data.height, d = this.data.footprint.height;
     if (this.data.kind === 'stove') {
-
       slots.forEach((slot, index) => {
         if (slot.status === 'empty') return;
         const x = 24 + Math.floor(index / 2) * 50, y = -lift + 16 + (index % 2) * 25;
-        const ready = slot.status === 'ready';
-        g.fillStyle(ready ? C.highlight : C.gold, 0.35).fillEllipse(x, y, 30, 22);
-        g.fillStyle(C.woodLight).fillEllipse(x, y, 20, 12);
-        g.fillStyle(C.cream).fillEllipse(x + 2, y - 2, 9, 6);
-        g.fillStyle(C.gold).fillCircle(x + 2, y - 2, 2);
-        g.fillStyle(C.greenDark).fillRect(x - 12, y + 8, 24, 3);
-        g.fillStyle(ready ? C.highlight : C.gold).fillRect(x - 12, y + 8,
-          24 * (ready ? 1 : slot.elapsedMs / slot.durationMs), 3);
+        if (slot.status === 'ready') {
+          meal(g, x, y, .85);
+          g.fillStyle(C.ready).fillCircle(x + 12, y - 7, 6);
+          checkmark(g, x + 12, y - 7, .6);
+        } else {
+          g.fillStyle(C.ink).fillEllipse(x, y, 29, 17);
+          g.fillStyle(C.woodDark).fillRoundedRect(x + 11, y - 1, 10, 4, 2);
+          g.fillStyle(C.woodLight).fillEllipse(x, y - 1, 20, 10);
+          g.lineStyle(1.3, C.cream, .9).beginPath().moveTo(x - 4, y - 6).lineTo(x - 6, y - 9).lineTo(x - 4, y - 12).strokePath();
+          progressBar(g, x - 13, y + 8, 26, slot.elapsedMs / slot.durationMs, C.cooking);
+        }
       });
     } else if (this.data.kind === 'table') {
       const dirty = table!.cleanliness === 'dirty';
-
-      if (dirty || customer?.phase === 'eating') {
-        g.fillStyle(C.cream).fillEllipse(35, -lift + 31, 29, 16);
-        g.fillStyle(dirty ? C.woodDark : C.woodLight).fillEllipse(35, -lift + 31, dirty ? 12 : 23, 9);
-        g.fillStyle(C.green).fillCircle(31, -lift + 28, 2);
-        g.fillStyle(C.gold).fillCircle(40, -lift + 31, 3);
-        if (dirty) {
-          g.fillStyle(C.cream).fillTriangle(56, -lift + 34, 66, -lift + 30, 69, -lift + 41);
-          g.fillStyle(C.coral).fillCircle(46, -lift + 40, 2).fillCircle(29, -lift + 44, 2);
-        }
+      if (dirty || customer?.phase === 'eating') meal(g, 35, -lift + 31, 1.15, dirty);
+      if (dirty) {
+        g.fillStyle(C.cream).fillTriangle(52, -lift + 29, 61, -lift + 25, 63, -lift + 37);
+        g.fillStyle(C.woodDark).fillCircle(26, -lift + 44, 2).fillCircle(44, -lift + 42, 1.5);
+        g.fillStyle(C.dirty).fillRoundedRect(5, d - lift - 1, 25, 12, 6);
+        g.fillStyle(C.cream).fillRoundedRect(16, d - lift + 1, 2, 4, 1).fillCircle(17, d - lift + 8, 1.2);
       }
     } else {
-      // Stock has no cap; artwork stays bounded regardless of the total.
-      for (let i = 0; i < Math.min(production.availablePortions, 8); i++) {
-        const px = 30 + (i % 4) * 28;
-        const py = -lift + 23 + Math.floor(i / 4) * 16;
-        g.fillStyle(C.cream).fillEllipse(px, py, 25, 13);
-        g.fillStyle(C.woodLight).fillEllipse(px, py - 1, 18, 9);
-        g.fillStyle(C.cream).fillEllipse(px + 2, py - 2, 8, 6);
-        g.fillStyle(C.gold).fillCircle(px + 2, py - 2, 2);
-        g.fillStyle(C.green).fillCircle(px - 5, py, 1.5);
-      }
+      // Display tray is illustrative, while carried inventories always show exact quantities.
+      for (let i = 0; i < Math.min(production.availablePortions, 8); i++)
+        meal(g, 29 + (i % 4) * 26, -lift + 23 + Math.floor(i / 4) * 15, .85);
     }
   }
-
-  destroy(): void {
-    this.visual.destroy(); this.shadow.destroy(); this.chair?.destroy();
-    this.highlight.destroy();
-  }
-
+  destroy(): void { this.visual.destroy(); this.shadow.destroy(); this.chair?.destroy(); this.highlight.destroy(); }
   setSelected(selected: boolean): void {
     if (this.selected === selected) return;
-    this.selected = selected;
-    this.highlight.setVisible(selected);
+    this.selected = selected; this.highlight.setVisible(selected);
   }
 }

@@ -1,3 +1,4 @@
+import type { Message } from '../i18n/core.ts';
 import { STAFF } from '../config.ts';
 import { STAFF_POSITIONS } from '../world/layout.ts';
 import type { Point } from '../world/layout.ts';
@@ -14,7 +15,7 @@ export interface Employee {
   readonly inventory: Inventory;
   position: Point;
   route: Point[];
-  task: { command: RestaurantAction; destination: Point; label: string; elapsedMs: number; durationMs: number | null } | null;
+  task: { command: RestaurantAction; destination: Point; label: Message; elapsedMs: number; durationMs: number | null } | null;
   retryMs: number;
 }
 export class Staff {

@@ -1,14 +1,15 @@
+import type { Key } from '../i18n/core.ts';
 import { CUSTOMERS, ROOM } from '../config.ts';
 
 export interface Point { x: number; y: number }
 export interface Rect extends Point { width: number; height: number }
 export type StationKind = 'fridge' | 'stove' | 'counter' | 'table' | 'bin';
 export interface StationData {
-  id: string; name: string; kind: StationKind;
+  id: string; name: Key; kind: StationKind;
   footprint: Rect; height: number; interaction: Point;
 }
 export interface InteractionZone {
-  id: string; stationId: string; name: string;
+  id: string; stationId: string; name: Key;
   role: 'production' | 'deposit' | 'checkout' | 'table' | 'bin' | 'office';
   position: Point;
   access?: Rect;
@@ -17,12 +18,12 @@ export interface InteractionZone {
 // Footprints occupy the floor; height only projects the drawing upwards.
 const tables: StationData[] = Array.from({ length: 6 }, (_, index) => {
   const x = 225 + (index % 2) * 200, y = 365 + Math.floor(index / 2) * 140;
-  return { id: 'table-' + (index + 1), name: 'Limpiar', kind: 'table',
+  return { id: 'table-' + (index + 1), name: 'station.table', kind: 'table',
     footprint: { x, y, width: 106, height: 65 }, height: 34, interaction: { x: x + 53, y: y + 90 } };
 });
 export const EXTRA_TABLES: readonly StationData[] = tables.slice(2);
 export const EXTRA_STOVE: StationData = {
-  id: 'stove-2', name: 'Hornillo', kind: 'stove', footprint: { x: 420, y: 204, width: 100, height: 58 },
+  id: 'stove-2', name: 'station.stove', kind: 'stove', footprint: { x: 420, y: 204, width: 100, height: 58 },
   height: 45, interaction: { x: 470, y: 288 },
 };
 export const CHECKOUT_PLAYER = { x: 715, y: 200 } as const;
@@ -36,11 +37,11 @@ export const OFFICE = {
   interaction: { x: 113, y: 478 },
 } as const;
 export const STATIONS: readonly StationData[] = [
-  { id: 'fridge', name: 'Frigorífico', kind: 'fridge', footprint: { x: 110, y: 202, width: 90, height: 60 }, height: 92, interaction: { x: 155, y: 288 } },
-  { id: 'stove', name: 'Hornillo', kind: 'stove', footprint: { x: 270, y: 204, width: 100, height: 58 }, height: 45, interaction: { x: 320, y: 288 } },
-  { id: 'counter', name: 'Mostrador', kind: 'counter', footprint: { x: 610, y: 250, width: 210, height: 66 }, height: 43, interaction: CHECKOUT_PLAYER },
+  { id: 'fridge', name: 'station.fridge', kind: 'fridge', footprint: { x: 110, y: 202, width: 90, height: 60 }, height: 92, interaction: { x: 155, y: 288 } },
+  { id: 'stove', name: 'station.stove', kind: 'stove', footprint: { x: 270, y: 204, width: 100, height: 58 }, height: 45, interaction: { x: 320, y: 288 } },
+  { id: 'counter', name: 'station.counter', kind: 'counter', footprint: { x: 610, y: 250, width: 210, height: 66 }, height: 43, interaction: CHECKOUT_PLAYER },
   ...tables.slice(0, 2),
-  { id: 'bin', name: 'Papelera', kind: 'bin', footprint: { x: 112, y: 591, width: 52, height: 43 }, height: 43, interaction: { x: 190, y: 613 } },
+  { id: 'bin', name: 'station.bin', kind: 'bin', footprint: { x: 112, y: 591, width: 52, height: 43 }, height: 43, interaction: { x: 190, y: 613 } },
 ];
 export function stationZone(station: StationData): InteractionZone {
   return { id: station.id, stationId: station.id, name: station.name,
@@ -49,14 +50,17 @@ export function stationZone(station: StationData): InteractionZone {
 }
 export const INTERACTION_ZONES: readonly InteractionZone[] = [
   ...STATIONS.filter(s => s.kind !== 'counter').map(stationZone),
-  { id: 'office', stationId: 'office', name: 'Oficina', role: 'office', position: OFFICE.interaction },
-  { id: 'deposit', stationId: 'counter', name: 'Depositar', role: 'deposit', position: DEPOSIT_POINT },
-  { id: 'checkout', stationId: 'counter', name: 'Caja', role: 'checkout', position: CHECKOUT_PLAYER,
+  { id: 'office', stationId: 'office', name: 'station.office', role: 'office', position: OFFICE.interaction },
+  { id: 'deposit', stationId: 'counter', name: 'station.deposit', role: 'deposit', position: DEPOSIT_POINT },
+  { id: 'checkout', stationId: 'counter', name: 'station.checkout', role: 'checkout', position: CHECKOUT_PLAYER,
     access: { x: 673, y: 160, width: 84, height: 72 } },
 ];
 export const CUSTOMER_LAYOUT = {
   entry: { x: 690, y: 1500 }, inside: { x: 690, y: ROOM.y + ROOM.height - 15 }, exit: { x: 870, y: 1500 },
 } as const;
+// Decorative welcome rug sits across the actual customer entrance, with no collision or action.
+export const WELCOME_RUG = { x: 666, y: ROOM.y + ROOM.height - 41, width: 206, height: 49 } as const;
+export const WALL_SIGN = { x: 397, y: 65, width: 272, height: 65 } as const;
 export const CUSTOMER_EXIT_TURN = { x: 570, y: CUSTOMER_PUBLIC_Y } as const;
 export const CUSTOMER_EXIT_LANE = { x: 870, y: CUSTOMER_PUBLIC_Y } as const;
 // Two separate public queues. Paid clients use a third lane on the right.

@@ -25,15 +25,7 @@ export const CAMERA = {
   zoomMultiplier: 0.85,
   headOffset: 24,
 } as const;
-export const COLORS = {
-  background: 0xe7e4d5, wall: 0xf7efd9, wallShade: 0xe7d6b5,
-  floor: 0xe5d8bc, tile: 0xeee4ce, grout: 0xd6c8a9,
-  green: 0x315e50, greenLight: 0x6b9580, greenDark: 0x244a40,
-  wood: 0xcc9158, woodDark: 0x975f3f, woodLight: 0xe0b37b,
-  cream: 0xfff7e7, ink: 0x344b40, shadow: 0x263e32,
-  coral: 0xc56346, gold: 0xe8bb68, metal: 0xabc4b4,
-  skin: 0xd9996c, hair: 0x423326, highlight: 0x428b68,
-} as const;
+export { PALETTE as COLORS } from './visuals/theme.ts';
 
 export const DEMAND = {
   firstArrivalDelayMs: 8000,
@@ -42,7 +34,7 @@ export const DEMAND = {
 export const COMMENTS = {
   thresholdMinMs: 10000, thresholdMaxMs: 15000, checkIntervalMs: 1000,
   participationChance: 0.65, durationMs: 2500, cooldownMs: 20000, maxVisible: 2,
-  phrases: ['Qué hambre…', '¿Falta mucho?', 'Hoy hay mucha cola.', 'Espero que merezca la pena.'],
+  phrases: ['comment.hungry', 'comment.wait', 'comment.queue', 'comment.worth'],
 } as const;
 export const DEBUG = { customerMarkers: false } as const;
 export const STAFF = { speed: 110, cookStockTarget: 12 } as const;

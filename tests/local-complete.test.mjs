@@ -59,12 +59,12 @@ test('Una tarjeta de mesas compra 2 → 6 con precios crecientes y el hornillo c
     assert.equal(r.totalSpent, spent + price);
     assert.equal(r.purchase('tables', index), false); assert.equal(r.money, before - price);
   }
-  assert.equal(r.purchaseState('tables').problem, 'Espacio completo');
+  assert.equal(r.purchaseState('tables').problem, 'limit.tables');
   assert.equal(r.purchase('tables', 4), false); assert.equal(r.tables.length, 6);
   const before = r.money; buy(r, 'stove');
   assert.equal(r.money, before - 180); assert.deepEqual(r.production.stoveIds, ['stove', 'stove-2']);
   assert.equal(r.purchase('stove', 0), false); assert.equal(r.purchase('stove', 1), false);
-  assert.equal(r.purchaseState('stove').problem, 'Máximo alcanzado');
+  assert.equal(r.purchaseState('stove').problem, 'limit.max');
   assert.equal(r.money, before - 180);
 });
 

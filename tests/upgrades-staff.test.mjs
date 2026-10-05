@@ -35,7 +35,7 @@ test('Compras: fondos, débito único, niveles máximos, límites reales 8/12/16
   const r = new Restaurant();
   assert.equal(r.money, 0);
   assert.equal(r.purchase('cook', 0), false);
-  assert.equal(r.purchaseState('cook').problem, 'Fondos insuficientes');
+  assert.equal(r.purchaseState('cook').problem, 'purchase.funds');
   r.coins = 2000;
   for (const category of ['ingredients', 'meals', 'waste'])
     for (let i = 0; i < 8; i++) assert.ok(r.production.playerInventory.change(category, 1));
@@ -274,6 +274,6 @@ test('Invalidación y ruta imposible liberan reservas; reinicio restaura todo el
   assert.equal(r.teamActionMs, 1500); assert.equal(r.production.cookingMs, 4000);
   assert.equal(r.production.availablePortions, 0); assert.equal(r.production.stoveSummary.empty, 4);
   for (const id of Object.keys(UPGRADES)) assert.equal(r.upgradeLevel(id), 0);
-  assert.equal(r.validate({ kind: 'clean', tableId: 'table-3' }), 'La mesa ya está limpia.');
+  assert.equal(r.validate({ kind: 'clean', tableId: 'table-3' }), 'reason.tableAlreadyClean');
   assert.deepEqual(PLAYER.spawn, { x: 378, y: 735 });
 });

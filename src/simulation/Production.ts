@@ -1,3 +1,4 @@
+import type { Key } from '../i18n/core.ts';
 import { PRODUCTION } from '../config.ts';
 import type { StationKind } from '../world/layout.ts';
 import { Inventory } from './Inventory.ts';
@@ -7,7 +8,7 @@ export type { InventoryLimits, InventoryState } from './Inventory.ts';
 export type StoveState = { readonly status: 'empty' } |
   { readonly status: 'cooking'; readonly elapsedMs: number; readonly durationMs: number } | { readonly status: 'ready' };
 export type ProductionAction = 'take-ingredients' | 'start-cooking' | 'take-meal' | 'store-meal' | 'discard';
-export type Availability = { action: ProductionAction; label: string; slotIndex?: number } | { action: null; reason: string };
+export type Availability = { action: ProductionAction; label: Key; slotIndex?: number } | { action: null; reason: Key };
 export interface ProductionOptions { cookingMs: number; stoveSlots: number; inventory: InventoryLimits }
 
 // One implementation of transfers and clocks, keyed by stove and slot.
@@ -49,23 +50,23 @@ export class Production {
   availableAt(kind: StationKind, inventory = this.playerInventory, slotAllowed: (index: number) => boolean = () => true,
     stoveId = 'stove'): Availability {
     switch (kind) {
-      case 'fridge': return inventory.canAdd('ingredients') ? { action: 'take-ingredients', label: 'Recoger ingredientes' } :
-        { action: null, reason: 'Carga de ingredientes completa.' };
+      case 'fridge': return inventory.canAdd('ingredients') ? { action: 'take-ingredients', label: 'action.ingredients' } :
+        { action: null, reason: 'reason.ingredientsFull' };
       case 'stove': {
         const slots = this.kitchens.get(stoveId);
-        if (!slots) return { action: null, reason: 'Hornillo no disponible.' };
+        if (!slots) return { action: null, reason: 'reason.stoveUnavailable' };
         const ready = slots.findIndex((s, i) => s.status === 'ready' && slotAllowed(i));
         const empty = slots.findIndex((s, i) => s.status === 'empty' && slotAllowed(i));
-        if (ready >= 0 && inventory.canAdd('meals')) return { action: 'take-meal', slotIndex: ready, label: 'Recoger nasi goreng' };
-        if (empty >= 0 && inventory.has('ingredients')) return { action: 'start-cooking', slotIndex: empty, label: 'Poner a cocinar' };
-        return { action: null, reason: ready >= 0 && !inventory.canAdd('meals') ? 'Carga de platos completa.' :
-          empty >= 0 ? 'Faltan ingredientes.' : 'Se está cocinando…' };
+        if (ready >= 0 && inventory.canAdd('meals')) return { action: 'take-meal', slotIndex: ready, label: 'action.meal' };
+        if (empty >= 0 && inventory.has('ingredients')) return { action: 'start-cooking', slotIndex: empty, label: 'action.cook' };
+        return { action: null, reason: ready >= 0 && !inventory.canAdd('meals') ? 'reason.mealsFull' :
+          empty >= 0 ? 'reason.ingredientsMissing' : 'reason.cooking' };
       }
-      case 'counter': return inventory.has('meals') ? { action: 'store-meal', label: 'Depositar nasi goreng' } :
-        { action: null, reason: 'No llevas platos.' };
-      case 'bin': return inventory.has('waste') ? { action: 'discard', label: 'Tirar residuos' } :
-        { action: null, reason: 'No llevas residuos.' };
-      case 'table': return { action: null, reason: 'Esta mesa solo necesita limpieza cuando está sucia.' };
+      case 'counter': return inventory.has('meals') ? { action: 'store-meal', label: 'action.deposit' } :
+        { action: null, reason: 'reason.noMealsCarried' };
+      case 'bin': return inventory.has('waste') ? { action: 'discard', label: 'action.discard' } :
+        { action: null, reason: 'reason.noWaste' };
+      case 'table': return { action: null, reason: 'reason.tableNeedsDirt' };
     }
   }
   canPerform(action: ProductionAction, slotIndex?: number, inventory = this.playerInventory, stoveId = 'stove'): boolean {
@@ -80,23 +81,23 @@ export class Production {
         this.availableAt('stove', inventory, () => true, stoveId).action === action : slots?.[slotIndex]?.status === 'ready');
     }
   }
-  perform(action: ProductionAction, slotIndex?: number, inventory = this.playerInventory, stoveId = 'stove'): string | null {
+  perform(action: ProductionAction, slotIndex?: number, inventory = this.playerInventory, stoveId = 'stove'): Key | null {
     if (!this.canPerform(action, slotIndex, inventory, stoveId)) return null;
     switch (action) {
-      case 'take-ingredients': inventory.change('ingredients', 1); return 'Ingrediente recogido.';
+      case 'take-ingredients': inventory.change('ingredients', 1); return 'result.ingredient';
       case 'start-cooking': {
         const slots = this.kitchens.get(stoveId)!;
         const index = slotIndex ?? slots.findIndex(s => s.status === 'empty');
         inventory.change('ingredients', -1);
-        slots[index] = { status: 'cooking', elapsedMs: 0, durationMs: this.cookingMs }; return 'Nasi goreng al fuego.';
+        slots[index] = { status: 'cooking', elapsedMs: 0, durationMs: this.cookingMs }; return 'result.cooking';
       }
       case 'take-meal': {
         const slots = this.kitchens.get(stoveId)!;
         const index = slotIndex ?? slots.findIndex(s => s.status === 'ready');
-        slots[index] = { status: 'empty' }; inventory.change('meals', 1); return 'Ración lista para depositar.';
+        slots[index] = { status: 'empty' }; inventory.change('meals', 1); return 'result.meal';
       }
-      case 'store-meal': this.stock++; inventory.change('meals', -1); return 'Ración disponible en el mostrador.';
-      case 'discard': inventory.change('waste', -1); return 'Residuo retirado.';
+      case 'store-meal': this.stock++; inventory.change('meals', -1); return 'result.deposit';
+      case 'discard': inventory.change('waste', -1); return 'result.discard';
     }
   }
   sellAvailable(): boolean { if (this.stock < 1) return false; this.stock--; return true; }

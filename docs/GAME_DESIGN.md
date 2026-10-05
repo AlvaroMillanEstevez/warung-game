@@ -4,7 +4,25 @@
 
 Juego de gestión de un warung indonesio para navegador, ordenador y móvil. Un local y una receta: nasi goreng. Phaser 4.2.1, TypeScript estricto y Vite con npm y lockfile. Sin frameworks de interfaz, backend, servicios externos ni assets descargados. Gráficos provisionales con Phaser.
 
-Los hitos 1–4 están aprobados manualmente. La revisión de experiencia y balance está aprobada manualmente. El cierre del primer local también está aprobado manualmente. La revisión actual integra la oficina en pared, aleja la cámara y ajusta llegadas, demanda y coordinación de dos cocineros. Detenerse al terminar para revisión, sin nuevos locales, recetas, persistencia ni objetivos finales.
+Los hitos 1–4 están aprobados manualmente. La revisión de experiencia y balance está aprobada manualmente. El cierre del primer local también está aprobado manualmente. La revisión de oficina, cámara, llegadas, demanda y dos cocineros también está aprobada manualmente. La renovación visual está aprobada manualmente. El encargo actual añade localización es/en/id manteniendo reglas y balance. Solo se guarda la preferencia de idioma. Detenerse al terminar para revisión, sin nuevos locales, recetas, guardado de partida ni objetivos finales.
+
+## Dirección visual
+
+Primera renovación: restaurante de juguete 2D con perspectiva inclinada, volúmenes redondeados, crema/madera cálida y verde jade, acento coral y sombras suaves. Suelo cerámico en cocina y madera en comedor. Tema central compartido con CSS en src/visuals/theme.ts; fuentes de sistema y textos del mundo a resolución 3. Sin assets descargados, 3D ni dependencias nuevas.
+
+Alfombra Selamat datang en la entrada efectiva de clientes, solo decorativa. Placa mural con título y subtítulo completos: se corrige posición/contraste frente al zócalo, sin elevar globalmente textos. Huellas y puntos funcionales permanecen idénticos.
+
+Personajes con vestuario por rol y cuatro variantes de clientes. Piezas de Graphics dibujadas una vez; marcha solo mediante transformaciones, profundidad por pies. Torres exactas: paquetes de ingredientes, platos ovalados y bolsas de residuos. Wok/vapor/progreso, marca de listo y restos/exclamación identifican estados además del color. Avisos fuera de la carga.
+
+Panel de mejoras con estados escritos y cierre fijo al desplazar la lista. HUD solo dinero. Animación breve al quedar lista una ración, sin filtros, partículas ni sacudidas. Detalles y límites en [VISUAL_DESIGN.md](VISUAL_DESIGN.md). Esta renovación no cambia ninguna regla descrita a continuación.
+
+## Localización
+
+Interfaz completa en español, inglés e indonesio; catálogos de claves estables en src/i18n/catalogs. Elección guardada válida > lista ordenada de preferencias del navegador, incluidas variantes regionales > inglés. Sin inferir por ubicación. Selector con los nombres nativos en oficina; cambiar no altera simulación ni pausa.
+
+Solo se persiste warung-kita.language. Almacenamiento inaccesible no bloquea juego ni selector. Las reglas entregan claves y parámetros independientes del idioma; la vista aplica traducciones y formatos numéricos con Intl.NumberFormat. Textos existentes, texturas de texto Phaser, comentarios y avisos se actualizan sin reiniciar sus relojes. Respaldo inglés y aviso en desarrollo si falta una clave.
+
+Conservar Warung Kita, nasi goreng y Selamat datang decorativo. Títulos y botones DEV localizados; su volcado interno mantiene identificadores técnicos. Detalles y guía de revisión nativa en [LOCALIZATION.md](LOCALIZATION.md).
 
 ## Movimiento, espacio y cámara
 
@@ -134,4 +152,4 @@ Reinicio: niveles globales, capacidades 8, acciones 1,5 s, cocción 4 s, gasto c
 
 Restaurant coordina clientes, mesas, compras, dinero, demanda y reservas; Production ejecuta transferencias con el Inventory del actor. Staff lleva dos profesiones concretas; CustomerComments administra señales ambientales con información de visibilidad suministrada por la escena. Reglas independientes de Phaser/DOM. Las vistas representan datos; sin ECS, bus global o sistema genérico de tareas.
 
-No hay persistencia: recargar comienza de cero. No añadir nuevos locales, recetas, más de dos hornillos, niveles individuales, cajero, tutoriales, objetivos finales, arte final, publicidad, sonido o publicación. Sin push. Detenerse para revisión manual.
+No hay persistencia de partida: recargar comienza de cero; solo permanece la preferencia de idioma. No añadir nuevos locales, recetas, más de dos hornillos, niveles individuales, cajero, tutoriales, objetivos finales, arte final, publicidad, sonido o publicación. Sin push. Detenerse para revisión manual.

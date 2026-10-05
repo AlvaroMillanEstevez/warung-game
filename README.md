@@ -1,6 +1,6 @@
 # Warung Kita
 
-Prototipo de gestión de un warung para navegador. Hitos 1–4, revisión de experiencia y cierre del primer local aprobados manualmente. **Revisión de oficina, cámara, demanda y segundo cocinero implementada, pendiente de revisión manual.**
+Prototipo de gestión de un warung para navegador. Hitos 1–4, revisión de experiencia y cierre del primer local aprobados manualmente. Oficina, cámara, demanda y segundo cocinero también aprobados manualmente. **Renovación visual aprobada manualmente. Localización en español, inglés e indonesio implementada.**
 
 ## Ejecutar desde WSL
 
@@ -11,12 +11,30 @@ npm run dev
 
 Abre [el juego local](http://127.0.0.1:5173/) en Windows. Node >=22.18, npm >=10; Phaser 4.2.1, TypeScript estricto y Vite. Sin dependencias nuevas; npm ci reinstala desde package-lock.json.
 
-- npm test: reglas, transferencias, navegación y controles con node:test.
+- npm test: reglas, transferencias, navegación, controles y localización con node:test.
 - npm run typecheck: tipos.
 - npm run build: tipos y compilación de producción.
 - npm run preview: versión compilada en el puerto 4173.
 
 Vite escucha en todas las interfaces en el puerto fijo 5173. Acceder desde un teléfono físico puede requerir configuración LAN/WSL/firewall; el proyecto no cambia esa configuración.
+
+## Primera renovación visual
+
+Restaurante de juguete en 2D: crema, madera cálida y verde jade, volúmenes redondeados y sombras suaves. Cocina y comedor usan materiales distintos. Personajes con ropa propia de cada rol, variantes de clientes y marcha discreta. La carga mantiene cantidades exactas y formas distintas; estados de cocina/listo/suciedad usan símbolos además de color.
+
+La alfombra Selamat datang está en el acceso real de clientes. El rótulo de la pared tiene una placa donde caben sus dos líneas. El panel distingue compras disponibles, saldo insuficiente, requisitos y máximos, con cierre fijo al desplazar la lista.
+
+Todo se dibuja por código, sin assets externos ni dependencias nuevas. Tema en src/visuals/theme.ts; detalles en [VISUAL_DESIGN.md](docs/VISUAL_DESIGN.md). Reglas, economía, inventarios, tareas, movimiento, puntos y zoom conservados.
+
+## Idiomas
+
+En la oficina, el selector **Español / English / Bahasa Indonesia** cambia todos los textos en caliente sin reiniciar la partida. Solo recuerda esa elección en localStorage (warung-kita.language); si está bloqueado, funciona durante la sesión. Recargar sigue reiniciando el juego.
+
+Al iniciar: elección guardada válida, luego idiomas del navegador en orden (es-ES, en-US, id-ID y otras variantes), y finalmente inglés. No se utiliza ubicación ni zona horaria. Números con formato del idioma elegido.
+
+Catálogos revisables: [español](src/i18n/catalogs/es.ts), [inglés](src/i18n/catalogs/en.ts) e **[indonesio](src/i18n/catalogs/id.ts)**. Conservan las mismas 122 claves y parámetros. Para revisión con una hablante nativa, cambiar solo los valores de id.ts y mantener claves y marcadores entre llaves. Guía en [LOCALIZATION.md](docs/LOCALIZATION.md).
+
+Panel, estados de compra, requisitos, efectos, confirmaciones, avisos, comentarios, rótulos funcionales, filas, nombres de profesiones, feedback de carga, dinero y accesibilidad están localizados. Warung Kita, nasi goreng y la alfombra cultural Selamat datang se conservan. Datos/identificadores internos de DEV y errores de programación de consola siguen siendo diagnósticos técnicos; sus botones y título sí se traducen.
 
 ## Jugar
 
@@ -76,7 +94,7 @@ Cambiar tramo muestra un aviso y comienza un intervalo nuevo completo, sin ráfa
 
 Intención **70 % comer dentro / 30 % para llevar**, fijada una vez; filas **20/10**, máximo global **48**. Fila llena omite la llegada sin desviar intención ni acumular deuda. Mesas asignadas no impiden ventas para llevar.
 
-## Recorrido manual de esta revisión
+## Recorrido manual del juego
 
 1. **Inicio:** abre DEV con F2 o mantén dinero 1,2 s; reinicia. Sin moverte no aparecen clientes. Da un paso y espera: primero a los 8 s activos sin necesitar comida. Abrir oficina o cambiar pestaña congela la cuenta.
 2. **Oficina y encuadre:** acércate a la alfombra «Oficina» en pared izquierda. Prueba permanencia, pausa, cierre sin reapertura y salir/volver. Recorre bordes en vertical y horizontal: exterior completo, controles iguales y panel legible.
@@ -88,12 +106,31 @@ Intención **70 % comer dentro / 30 % para llevar**, fijada una vez; filas **20/
 
 Los tests preparan fondos y estados de ocupación para casos concretos; no hay dinero gratis en interfaz.
 
+## Revisión manual de idiomas
+
+1. Abre oficina y cambia entre los tres idiomas. Comprueba dinero, requisitos, precio siguiente, efectos y confirmación de una compra.
+2. Cierra y observa rótulos, filas, avisos de carga, cocineros, limpieza y comentarios. No deben quedar mensajes del idioma anterior.
+3. Comprueba que el restaurante sigue igual y que cerrar exige salir/volver a la oficina.
+4. Recarga: la elección se conserva, pero la partida vuelve a cero. Prueba además con almacenamiento bloqueado y preferencias regionales del navegador.
+5. En móvil, alterna orientación y desplaza hasta la última tarjeta: selector, textos y Cerrar deben ser legibles.
+
+## Revisión visual (aprobada)
+
+- Revisa el local inicial y después seis mesas/dos hornillos: volúmenes, sombras, ropa y profundidad por los pies.
+- Acércate al fondo para leer las dos líneas del rótulo y a la entrada de clientes para comprobar la alfombra.
+- Observa wok/vapor y progreso, plato con marca de listo, mesa con restos y exclamación.
+- Comprueba cargas máximas de ingredientes, platos y residuos; las tres torres tienen cantidades exactas y no tapan el rostro ni los avisos propios.
+- Prueba Oficina, comprar y desplazar la lista en móvil: Cerrar debe quedar visible. El HUD sigue siendo solo dinero.
+- Alterna vertical/horizontal y recorre estaciones con teclado o arrastre; el encuadre y la respuesta son los aprobados.
+
+Capturas y límites de verificación en [VERIFICATION.md](docs/VERIFICATION.md). Las vistas generales de documentación usan un encuadre de prueba para enseñar el local completo; las móviles conservan la cámara del juego.
+
 ## Organización y límites
 
 Configuración en src/config.ts; distribución en src/world/layout.ts. Restaurant coordina compras, clientes, mesas, dinero y reservas, incluida capacidad de producción. Production realiza transferencias y cocina; Staff mantiene dos profesiones y sus identidades. Reglas independientes de Phaser/DOM; sin sistemas genéricos ni framework adicional.
 
 Consulta [diseño](docs/GAME_DESIGN.md), [roadmap](docs/ROADMAP.md) y [verificación](docs/VERIFICATION.md).
 
-Arte, precios y demanda provisionales. Sin guardado; recargar empieza de cero. Personajes pueden cruzarse. Delta activo máximo 100 ms: por debajo de 10 FPS avanza más despacio. Continúa el aviso del bundle de Phaser. Móvil emulado no acredita comodidad en teléfono físico; pendientes otros navegadores y balance manual.
+Arte, precios y demanda provisionales. Sin guardado de partida; recargar empieza de cero y solo conserva el idioma. Personajes pueden cruzarse. Delta activo máximo 100 ms: por debajo de 10 FPS avanza más despacio. Continúa el aviso del bundle de Phaser. Móvil emulado no acredita comodidad en teléfono físico; pendientes otros navegadores y balance manual.
 
-**Detener tras esta revisión.** Sin nuevos locales, recetas, guardado, objetivos finales, más personal, publicación ni push.
+**Detener para revisión de traducciones.** Sin nuevos locales, recetas, guardado de partida, objetivos finales, más personal, publicación ni push.
