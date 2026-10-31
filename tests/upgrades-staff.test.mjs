@@ -9,7 +9,7 @@ import { findPath } from '../src/world/navigation.ts';
 import { findCustomerPath, canStandCustomer } from '../src/world/customerNavigation.ts';
 
 // Funds and deliberately dirty tables are fixtures, never normal game controls.
-const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 2000; r.arrivalsActive = true; r.firstArrival = false; return r; };
+const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 2000; r.production.restock(100); r.arrivalsActive = true; r.firstArrival = false; return r; };
 const zone = (r, id) => r.interactionZones.find(z => z.id === id);
 const buy = (r, id) => assert.ok(r.purchase(id, r.upgradeLevel(id)), r.purchaseState(id).problem);
 const advance = (r, ms) => { for (let t = 0; t < ms; t += 50) r.update(Math.min(50, ms - t)); };
@@ -31,29 +31,23 @@ function queued(r) {
 }
 function sale(r) { const c = r.offer(zone(r, 'checkout')).command; assert.ok(c); assert.ok(r.perform(c)); return c; }
 
-test('Compras: fondos, débito único, niveles máximos, límites reales 8/12/16 y personal independiente', () => {
+test('Compras: fondos, débito único, niveles máximos, capacidad fija 8 y personal independiente', () => {
   const r = new Restaurant();
-  assert.equal(r.money, 0);
+  assert.equal(r.money, 30);
   assert.equal(r.purchase('cook', 0), false);
   assert.equal(r.purchaseState('cook').problem, 'purchase.funds');
   r.coins = 2000;
   for (const category of ['ingredients', 'meals', 'waste'])
     for (let i = 0; i < 8; i++) assert.ok(r.production.playerInventory.change(category, 1));
-  for (const capacity of [12, 16]) {
-    const before = r.money, level = r.upgradeLevel('transport');
-    buy(r, 'transport');
-    assert.equal(r.money, before - UPGRADES.transport.prices[level]);
-    assert.equal(r.purchase('transport', level), false);
-    for (const category of ['ingredients', 'meals', 'waste']) {
-      while (r.production.inventory[category] < capacity) assert.ok(r.production.playerInventory.change(category, 1));
-      assert.equal(r.production.playerInventory.change(category, 1), false);
-    }
-  }
-  const before = r.money; assert.equal(r.purchase('transport', 2), false); assert.equal(r.money, before);
+  const before = r.money;
+  for (const level of [0, 1, 2]) assert.equal(r.purchase('transport', level), false);
+  assert.equal(r.money, before); assert.equal(r.totalSpent, 0); assert.equal(r.teamCapacity, 8);
+  for (const category of ['ingredients', 'meals', 'waste'])
+    assert.equal(r.production.playerInventory.change(category, 1), false);
   buy(r, 'cook'); buy(r, 'cleaner');
   assert.equal(r.staff.employees.length, 2);
-  assert.equal(r.staff.get('cook').inventory.state.limits.ingredients, 16);
-  assert.equal(r.staff.get('cleaner').inventory.state.limits.waste, 16);
+  assert.equal(r.staff.get('cook').inventory.state.limits.ingredients, 8);
+  assert.equal(r.staff.get('cleaner').inventory.state.limits.waste, 8);
   for (const id of ['cook', 'cleaner']) assert.equal(r.purchase(id, 1), false);
   for (const id of ['actionSpeed', 'stoveSpeed', 'tables', 'stove']) {
     for (let level = 0; level < UPGRADES[id].prices.length; level++) buy(r, id);
@@ -90,7 +84,7 @@ test('Mesas compradas: huella, destinos, rutas y seguridad de colocación con ac
   const before = r.money;
   assert.equal(r.purchase('tables', 0, occupied), false); assert.equal(r.money, before);
   buy(r, 'tables'); buy(r, 'tables');
-  assert.equal(r.tables.length, 4); assert.equal(r.obstacles.length, 9);
+  assert.equal(r.tables.length, 4); assert.equal(r.obstacles.length, 11);
   const work = [...r.interactionZones.map(z => z.position), ...Object.values(STAFF_POSITIONS), PLAYER.spawn];
   const publicPoints = [...Object.values(TABLE_POSITIONS).map(t => t.seat), ...Object.values(CLEANING_WAIT_POINTS),
     ...Object.values(CUSTOMER_LAYOUT), ...Object.values(QUEUE_POINTS).flat()];
@@ -258,7 +252,7 @@ test('Reservas por ración/posición/residuo: otro actor conserva acceso al rest
 
 test('Invalidación y ruta imposible liberan reservas; reinicio restaura todo el Hito 4', () => {
   const r = make(); buy(r, 'cook'); buy(r, 'cleaner'); buy(r, 'tables'); buy(r, 'tables');
-  buy(r, 'transport'); buy(r, 'actionSpeed'); buy(r, 'stoveSpeed');
+  assert.equal(r.purchase('transport', 0), false); buy(r, 'actionSpeed'); buy(r, 'stoveSpeed');
   dirty(r, 'table-1'); r.update(50);
   assert.equal(r.activeReservations.get('table:table-1'), 'cleaner');
   r.table('table-1').cleanliness = 'clean';
@@ -268,8 +262,8 @@ test('Invalidación y ruta imposible liberan reservas; reinicio restaura todo el
   r.staff.get('cleaner').position = { x: -100, y: -100 }; // unreachable actor fixture
   r.update(50); assert.equal(r.activeReservations.has('table:table-2'), false);
   r.reset();
-  assert.equal(r.staff.employees.length + r.activeReservations.size + r.money + r.elapsedMs, 0);
-  assert.equal(r.tables.length, 2); assert.equal(r.obstacles.length, 7);
+  assert.equal(r.staff.employees.length + r.activeReservations.size + r.pendingCash + r.elapsedMs, 0);
+  assert.equal(r.tables.length, 2); assert.equal(r.obstacles.length, 9);
   assert.deepEqual(r.production.inventory.limits, { ingredients: 8, meals: 8, waste: 8 });
   assert.equal(r.teamActionMs, 800); assert.equal(r.production.cookingMs, 4000);
   assert.equal(r.production.availablePortions, 0); assert.equal(r.production.stoveSummary.empty, 4);

@@ -9,20 +9,20 @@ export class OrderPanel {
   private readonly abort = new AbortController();
   private readonly unsubscribe: () => void;
   private confirmId: number | null = null;
-  private feedback: Key | null = null;
+  private feedback: Message | null = null;
   private hudKey = '';
   get isOpen(): boolean { return this.dialog.open; }
   constructor(private readonly restaurant: Restaurant, private readonly onToggle: (open: boolean) => void,
-    private readonly onChange: () => void) {
+    private readonly onChange: (accepted: boolean) => void) {
     const options = { signal: this.abort.signal };
     document.querySelector('#close-orders')!.addEventListener('click', () => this.close(), options);
     this.dialog.addEventListener('cancel', event => { event.preventDefault(); this.close(); }, options);
     this.unsubscribe = i18n.subscribe(() => { if (this.isOpen) this.render(); this.update(); });
   }
   open(): void {
-    if (document.querySelector('dialog[open]')) return;
+    if (this.restaurant.bulkOrders.state.phase === 'locked' || document.querySelector('dialog[open]')) return;
     this.onToggle(true); this.confirmId = null; this.feedback = null;
-    this.render(); this.dialog.showModal();
+    this.render(); this.dialog.showModal(); this.restaurant.bulkOrders.visitBoard();
   }
   close(): void {
     if (!this.isOpen) return;
@@ -32,13 +32,13 @@ export class OrderPanel {
   destroy(): void { this.close(); this.abort.abort(); this.unsubscribe(); this.hud.hidden = true; }
   update(): void {
     const order = this.restaurant.bulkOrders.state;
-    this.hud.hidden = order.phase !== 'active';
-    if (order.phase !== 'active') { this.hudKey = ''; return; }
-    const seconds = Math.ceil(order.bonusRemainingMs / 1000);
-    const key = [i18n.current, order.id, order.packed, seconds].join(':');
+    this.hud.hidden = order.phase !== 'active' && order.phase !== 'ready';
+    if (order.phase !== 'active' && order.phase !== 'ready') { this.hudKey = ''; return; }
+    const seconds = order.phase === 'active' ? Math.ceil(order.bonusRemainingMs / 1000) : 0;
+    const key = [i18n.current, order.phase, order.id, order.packed, seconds].join(':');
     if (key === this.hudKey) return; this.hudKey = key;
     document.querySelector('#order-card-progress')!.textContent = t('bulk.card', { packed: order.packed, total: order.quantity });
-    document.querySelector('#order-card-timer')!.textContent = seconds ? t('bulk.timer', { seconds }) : t('bulk.expired');
+    document.querySelector('#order-card-timer')!.textContent = order.phase === 'ready' ? t('bulk.returnBoard') : seconds ? t('bulk.timer', { seconds }) : t('bulk.expired');
   }
   private render(): void {
     const state = this.restaurant.bulkOrders.state;
@@ -58,6 +58,20 @@ export class OrderPanel {
     if (state.phase === 'waiting') {
       add({ key: 'bulk.waiting', params: { seconds: Math.ceil(state.remainingMs / 1000) } }); return;
     }
+    if (state.phase === 'ready') {
+      add('bulk.ready', 'h3');
+      const income = this.restaurant.previewIncome(state.payment);
+      if (income.repaid > 0) {
+        add({ key: 'bulk.rewardNet', params: { gross: income.gross, repaid: income.repaid, net: income.net } }, 'p', 'order-progress');
+        add({ key: 'bulk.bonus', params: { amount: state.earnedBonus } });
+      } else add({ key: 'bulk.reward', params: { payment: state.payment, bonus: state.earnedBonus } }, 'p', 'order-progress');
+      add('bulk.readyHelp', 'p', 'order-help');
+      button('bulk.claim', 'claim-order', () => {
+        this.feedback = this.restaurant.claimBulkOrder(state.id) ?? 'bulk.stale';
+        this.onChange(false); this.render(); this.update();
+      });
+      return;
+    }
     add(state.phase === 'offer' ? 'bulk.offer' : 'bulk.active', 'span', 'upgrade-status');
     add({ key: 'bulk.quantity', params: { quantity: state.quantity } }, 'h3');
     add({ key: 'bulk.base', params: { amount: state.basePay } });
@@ -66,8 +80,9 @@ export class OrderPanel {
       add({ key: 'bulk.deadline', params: { seconds: state.bonusMs / 1000 } });
       add('bulk.late', 'p', 'order-help'); add('bulk.noExpiry', 'p', 'order-help');
       button('bulk.accept', 'accept-order', () => {
-        this.feedback = this.restaurant.acceptBulkOrder(state.id) ? 'bulk.accepted' : 'bulk.stale';
-        this.onChange(); this.render(); this.update();
+        const accepted = this.restaurant.acceptBulkOrder(state.id);
+        this.feedback = accepted ? 'bulk.accepted' : 'bulk.stale';
+        this.onChange(accepted); this.render(); this.update();
       });
     } else {
       add({ key: 'bulk.progress', params: { packed: state.packed, total: state.quantity } }, 'p', 'order-progress');
@@ -78,7 +93,7 @@ export class OrderPanel {
         add({ key: 'bulk.confirmBody', params: { packed: state.packed } }, 'p', 'order-confirm');
         button('bulk.confirmCancel', 'confirm-cancel-order', () => {
           this.feedback = this.restaurant.cancelBulkOrder(state.id) ? 'bulk.cancelled' : 'bulk.stale';
-          this.confirmId = null; this.onChange(); this.render(); this.update();
+          this.confirmId = null; this.onChange(false); this.render(); this.update();
         });
         button('bulk.keep', 'keep-order', () => { this.confirmId = null; this.render(); });
       } else button('bulk.cancel', 'cancel-order', () => {

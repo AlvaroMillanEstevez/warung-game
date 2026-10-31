@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { PALETTE as C, VISUAL as V, cssColor } from '../visuals/theme';
 import { localizedLabel, progressBar } from '../visuals/drawing';
+import { buildCost } from '../simulation/Opening';
+import type { BuildId } from '../simulation/Opening';
 import type { InteractionZone } from './layout';
 
 export class InteractionMarker {
@@ -12,13 +14,15 @@ export class InteractionMarker {
   private readonly drawY: number;
   constructor(scene: Phaser.Scene, readonly zone: InteractionZone) {
     // Raised markers remain legible above furniture; their physical action zones stay on the floor.
-    const rear = ['checkout', 'withdraw', 'board', 'packing'].includes(zone.role);
+    const rear = ['checkout', 'board', 'packing', 'cash', 'supplier'].includes(zone.role);
     this.drawY = zone.position.y + (zone.role === 'checkout' ? V.marker.checkoutOffsetY : zone.role === 'board' ? V.marker.boardOffsetY : 0);
     this.ring = scene.add.graphics().setDepth(rear ? V.depth.rearMarker : V.depth.marker);
     this.bar = scene.add.graphics().setDepth(V.depth.rearMarker + 2);
-    this.label = localizedLabel(scene, zone.position.x, this.drawY + 15, zone.name, 10.5,
+    this.label = localizedLabel(scene, zone.position.x, (zone.role === 'checkout' ? zone.position.y + V.marker.checkoutLabelOffsetY : this.drawY + 15), zone.role==='construction'?{key:zone.name,params:{price:buildCost(zone.id.slice(6) as BuildId)}}:zone.name, 10.5,
       zone.role === 'office' ? C.cream : C.greenDark, zone.role === 'office' ? 62 : 104).setOrigin(.5, 0)
-      .setDepth(rear ? V.depth.rearMarker + 1 : -.1);
+      .setDepth(zone.role === 'checkout' ? V.depth.marker : rear ? V.depth.rearMarker + 1 : -.1);
+    if (zone.role === 'checkout') this.label.setOrigin(.5, 1);
+    this.label.setName('marker-label-' + zone.id);
     if (rear) this.label.setBackgroundColor(cssColor(C.cream)).setPadding(3, 1);
     this.drawRing();
   }
@@ -49,11 +53,13 @@ export class InteractionMarker {
     g.fillStyle(this.selected ? C.green : C.cream, .95).fillRoundedRect(x - 10, y - 6, 20, 12, 6);
     g.lineStyle(V.stroke.normal, this.selected ? C.cream : C.green);
     const role = this.zone.role;
-    if (role === 'checkout') {
+    if(role==='construction') {
+      g.lineStyle(2,C.gold).strokeRect(x-13,y-9,26,18).lineBetween(x-4,y-3,x+4,y+3).lineBetween(x+4,y-3,x-4,y+3);
+    } else if (role === 'checkout' || role === 'cash') {
       g.strokeCircle(x, y, 3.5).lineBetween(x, y - 2, x, y + 2);
     } else if (role === 'packing') {
       g.strokeRect(x - 4, y - 3, 8, 6).lineBetween(x, y - 3, x, y + 3);
-    } else if (role === 'office' || role === 'board') {
+    } else if (role === 'office' || role === 'board' || role === 'supplier') {
       g.strokeRoundedRect(x - 3, y - 4, 6, 8, 1).lineBetween(x + 1, y, x + 2, y);
     } else if (role === 'table' || role === 'bin') {
       g.lineBetween(x - 3, y - 3, x + 4, y + 2).lineBetween(x - 4, y, x + 1, y + 3);

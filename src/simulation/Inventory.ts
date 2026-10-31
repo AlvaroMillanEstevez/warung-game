@@ -27,6 +27,15 @@ export class Inventory {
     this.capacities = Object.freeze({ ...limits });
     this.counts = Object.fromEntries(Object.keys(limits).map(key => [key, this.count(key as Category)]));
   }
+  snapshot(): Partial<Record<Category,number>> { return {...this.counts}; }
+  restore(counts:Partial<Record<Category,number>>):void {
+    for(const key of Object.keys(this.capacities) as Category[]) {
+      const n=counts[key]??0;
+      if(!Number.isSafeInteger(n)||n<0||n>this.capacity(key))throw new Error('Invalid inventory');
+      this.counts[key]=n;
+    }
+    if(Object.keys(counts).some(k=>!(k in this.capacities)))throw new Error('Invalid inventory category');
+  }
   reset(limits: ApplicableInventory = this.capacities): void {
     this.capacities = Object.freeze({ ...limits });
     this.counts = Object.fromEntries(Object.keys(limits).map(key => [key, 0]));

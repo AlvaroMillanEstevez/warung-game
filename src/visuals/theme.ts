@@ -22,7 +22,7 @@ export const VISUAL = {
   radius: { small: 5, control: 12, furniture: 12, panel: 24 },
   shadow: { outer: .035, middle: .055, contact: .10 },
   depth: { exterior: -200, room: -100, floorText: -90, groundShadow: -2, marker: -.25, rearMarker: 1000, feedback: 2000 },
-  marker: { checkoutOffsetY: -100, boardOffsetY: -43 },
+  marker: { checkoutOffsetY: -100, checkoutLabelOffsetY: -12, boardOffsetY: 0 },
   cargo: { side: 46, spacing: 6, baseY: -17, width: 52 },
   comment: { halfWidth: 70, top: 120, bottom: 79 },
   motion: { stride: 11, bob: 1.2, lift: 2, settleMs: 180 },

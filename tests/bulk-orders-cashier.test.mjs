@@ -5,11 +5,18 @@ import { BulkOrders } from '../src/simulation/BulkOrders.ts';
 import { INTERACTION, BULK_ORDERS } from '../src/config.ts';
 import { CASHIER_WORK } from '../src/world/layout.ts';
 
-const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 5000; return r; };
+const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 5000; r.production.restock(100); return r; };
 const buy = (r, id) => assert.ok(r.purchase(id, r.upgradeLevel(id)));
 const zone = (r, id) => r.interactionZones.find(z => z.id === id);
+// Isolate the withdrawal command's atomic rules; the live packing zone now chooses both operations.
+const actionOffer = (r, id, actor = 'player') => {
+  if (id !== 'withdraw') return r.offer(zone(r, id), actor);
+  const command = { kind: 'withdraw', orderId: r.bulkOrders.state.id, carried: r.production.inventory.meals };
+  const reason = r.validate(command, actor);
+  return reason ? { command: null, reason } : { command };
+};
 const command = (r, id, actor = 'player') => {
-  const offer = r.offer(zone(r, id), actor); assert.ok(offer.command, offer.reason); return offer.command;
+  const result = actionOffer(r, id, actor); assert.ok(result.command, result.reason); return result.command;
 };
 const act = (r, id) => { const c = command(r, id); assert.ok(r.beginAction(c)); assert.ok(r.perform(c)); return c; };
 const until = (r, condition, max = 180000) => {
@@ -43,22 +50,22 @@ test('Cajero: primer cocinero obligatorio, precio único, gasto y profesión fij
   assert.equal(r.staff.employees.filter(w => w.role === 'cashier').length, 1);
   assert.equal(r.staff.get('cashier').inventory.capacity('meals'), 0);
   assert.equal(r.validate({ kind: 'production', action: 'take-ingredients' }, 'cashier'), 'reason.cashierRole');
-  buy(r, 'transport'); assert.equal(r.staff.get('cashier').inventory.capacity('meals'), 0);
+  assert.equal(r.purchase('transport', 0), false); assert.equal(r.staff.get('cashier').inventory.capacity('meals'), 0);
 });
 
 test('Caja única: jugador primero conserva operación; cajero andando no reserva', () => {
   const r = make(); cook(r, 2); const id = queued(r);
   buy(r, 'cook'); buy(r, 'cashier');
   const c = command(r, 'checkout'); assert.ok(r.beginAction(c));
-  const before = r.money;
+  const before = r.pendingCash;
   for (let i = 0; i < 100; i++) r.staff.update(r, 20);
   assert.equal(r.activeReservations.get('checkout'), 'player');
   assert.equal(r.staff.get('cashier').task, null);
   assert.equal(r.beginAction(c, 'cashier'), false);
-  assert.ok(r.perform(c)); assert.equal(r.money, before + 10);
+  assert.ok(r.perform(c)); assert.equal(r.pendingCash, before + 10);
   assert.equal(r.production.availablePortions, 1); assert.ok(r.customer(id).orderId);
   assert.equal(r.perform(c), null); assert.equal(r.perform(c, 'cashier'), null);
-  assert.equal(r.money, before + 10); assert.equal(r.orders.length, 1);
+  assert.equal(r.pendingCash, before + 10); assert.equal(r.orders.length, 1);
 });
 
 test('Cajero primero no se reinicia por jugador; captura 800/600/400 ms y hereda mejoras', () => {
@@ -66,15 +73,15 @@ test('Cajero primero no se reinicia por jugador; captura 800/600/400 ms y hereda
   buy(r, 'cook'); buy(r, 'cashier');
   until(r, () => r.staff.get('cashier').task?.durationMs === 800);
   const w = r.staff.get('cashier'), task = w.task;
-  buy(r, 'actionSpeed'); const before = r.money;
+  buy(r, 'actionSpeed'); const before = r.pendingCash;
   assert.equal(task.durationMs, 800); assert.equal(r.teamActionMs, 600);
   for (let i = 0; i < 5; i++) {
     assert.equal(r.offer(zone(r, 'checkout')).command, null);
     assert.equal(r.beginAction(task.command), false);
     assert.equal(w.task, task);
   }
-  until(r, () => r.money > before);
-  assert.equal(r.money, before + 10); assert.equal(r.perform(task.command), null);
+  until(r, () => r.pendingCash > before);
+  assert.equal(r.pendingCash, before + 10); assert.equal(r.perform(task.command), null);
   until(r, () => w.task?.durationMs === 600);
   buy(r, 'actionSpeed'); assert.equal(w.task.durationMs, 600);
   until(r, () => w.task?.durationMs === 400);
@@ -90,16 +97,16 @@ test('Caja y retirada compiten por la última ración sin duplicarla; cajero rea
     const worker = r.staff.get('cashier'); Object.assign(worker.position, CASHIER_WORK);
     const sale = command(r, 'checkout', 'cashier'), take = command(r, 'withdraw');
     assert.ok(r.beginAction(sale, 'cashier')); assert.ok(r.beginAction(take));
-    const before = r.money;
+    const before = r.pendingCash;
     if (withdrawFirst) {
       assert.ok(r.perform(take)); assert.equal(r.perform(sale, 'cashier'), null);
-      assert.equal(r.money, before); assert.equal(r.production.inventory.meals, 1);
+      assert.equal(r.pendingCash, before); assert.equal(r.production.inventory.meals, 1);
       assert.equal(r.activeReservations.has('checkout'), false);
-      until(r, () => r.money > before); // Cook naturally replenishes; cashier wakes.
-      assert.equal(r.money, before + 10);
+      until(r, () => r.pendingCash > before); // Cook naturally replenishes; cashier wakes.
+      assert.equal(r.pendingCash, before + 10);
     } else {
       assert.ok(r.perform(sale, 'cashier')); assert.equal(r.perform(take), null);
-      assert.equal(r.money, before + 10); assert.equal(r.production.inventory.meals, 0);
+      assert.equal(r.pendingCash, before + 10); assert.equal(r.production.inventory.meals, 0);
       assert.equal(r.production.availablePortions, 0);
     }
     assert.equal(r.orders.length <= 1, true); assert.ok(r.production.availablePortions >= 0);
@@ -108,10 +115,10 @@ test('Caja y retirada compiten por la última ración sin duplicarla; cajero rea
 
 test('Oferta única: desbloqueo, aceptación idempotente, 90 s activos y espera exacta de 45 s', () => {
   const r = make(); assert.equal(r.bulkOrders.state.phase, 'locked');
-  assert.equal(r.offer(zone(r, 'withdraw')).command, null);
+  assert.equal(actionOffer(r, 'withdraw').command, null);
   buy(r, 'cook'); assert.equal(r.takeBulkUnlockedNotice(), true); assert.equal(r.takeBulkUnlockedNotice(), false);
   const b = r.bulkOrders, offer = b.state;
-  assert.equal(offer.quantity, 6); assert.equal(offer.basePay, 60); assert.equal(offer.bonusPay, 30);
+  assert.equal(offer.quantity, 4); assert.equal(offer.basePay, 40); assert.equal(offer.bonusPay, 20);
   b.update(1e7, 10, () => 0); assert.deepEqual(b.state, offer);
   assert.equal(r.acceptBulkOrder(offer.id + 1), false); assert.ok(r.acceptBulkOrder(offer.id));
   assert.equal(r.acceptBulkOrder(offer.id), false); assert.equal(b.unlock(10), false);
@@ -119,33 +126,47 @@ test('Oferta única: desbloqueo, aceptación idempotente, 90 s activos y espera 
   b.update(1, 10, () => 0); assert.equal(b.state.bonusRemainingMs, 0); assert.equal(b.state.phase, 'active');
   assert.ok(r.cancelBulkOrder(offer.id));
   b.update(44999, 10, () => .5); assert.equal(b.state.phase, 'waiting');
-  b.update(1, 10, () => .5); assert.equal(b.state.quantity, 8);
+  b.update(1, 10, () => .5); assert.equal(b.state.quantity, 4);
   assert.equal(r.acceptBulkOrder(offer.id), false);
-  for (const [random, quantity] of [[0, 6], [.5, 8], [.999, 10]]) {
-    const model = new BulkOrders(); model.unlock(10); model.accept(model.state.id); model.cancel(model.state.id);
-    model.update(BULK_ORDERS.nextOfferMs + 1e6, 10, () => random);
-    assert.equal(model.state.phase, 'offer'); assert.equal(model.state.quantity, quantity);
-    assert.equal(model.state.basePay, quantity * 10); assert.equal(model.state.bonusPay, quantity * 5);
+  const model = new BulkOrders(); model.unlock(10);
+  for (const quantity of [4, 6, 9, 6, 9, 6]) {
+    const current = model.state;
+    assert.equal(current.quantity, quantity); assert.equal(current.basePay, quantity * 10);
+    assert.equal(current.bonusPay, quantity * 5);
+    assert.ok(model.accept(current.id)); assert.equal(model.claim(current.id), null);
+    for (let i=0;i<quantity;i++) assert.ok(model.pack(current.id,i));
+    assert.ok(model.claim(current.id)); assert.equal(model.claim(current.id), null);
+    model.update(BULK_ORDERS.nextOfferMs + 1e6, 10, () => 0);
+    assert.equal(model.state.phase,'offer');
   }
+  model.reset(); model.unlock(10); assert.equal(model.state.quantity,4);
+  assert.ok(model.state.id>offer.id);
 });
 
 test('Retirada: una unidad, límite pendiente menos carga, capacidades independientes y sin cobro', () => {
   const r = make(); cook(r, 12); const before = r.production.availablePortions;
-  assert.equal(r.offer(zone(r, 'withdraw')).command, null);
+  assert.equal(actionOffer(r, 'withdraw').command, null);
   accept(r); const money = r.money, inventory = r.production.playerInventory;
   inventory.change('ingredients', 8); inventory.change('waste', 8);
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) {
     const c = act(r, 'withdraw'); assert.equal(r.perform(c), null);
     assert.equal(inventory.count('meals'), i + 1);
   }
-  assert.equal(r.production.availablePortions, before - 6); assert.equal(r.money, money);
-  assert.equal(r.offer(zone(r, 'withdraw')).reason, 'bulk.enoughCarried');
-  act(r, 'packing'); assert.equal(r.offer(zone(r, 'withdraw')).reason, 'bulk.enoughCarried');
+  assert.equal(r.production.availablePortions, before - 4); assert.equal(r.money, money);
+  assert.equal(actionOffer(r, 'withdraw').reason, 'bulk.enoughCarried');
+  act(r, 'packing'); assert.equal(actionOffer(r, 'withdraw').reason, 'bulk.enoughCarried');
   assert.equal(inventory.count('ingredients'), 8); assert.equal(inventory.count('waste'), 8);
   r.cancelBulkOrder(r.bulkOrders.state.id);
-  r.bulkOrders.update(45000, 10, () => .999); accept(r); // Ten exceeds initial meal capacity.
+  r.bulkOrders.update(45000, 10, () => 0);
+  // Advance two completed introductory offers in the model to isolate the nine-portion capacity case.
+  for (let n=0;n<2;n++) {
+    const b=r.bulkOrders, order=b.state; b.accept(order.id);
+    for(let i=0;i<order.quantity;i++) b.pack(order.id,i);
+    b.claim(order.id); b.update(45000,10,()=>0);
+  }
+  accept(r); assert.equal(r.bulkOrders.state.quantity,9);
   while (inventory.count('meals') < 8) act(r, 'withdraw');
-  assert.equal(r.offer(zone(r, 'withdraw')).reason, 'reason.mealsFull');
+  assert.equal(actionOffer(r, 'withdraw').reason, 'reason.mealsFull');
 });
 
 test('Empaquetado manual: un plato por ciclo, sobrantes conservados, pago y objetivo una sola vez', () => {
@@ -153,11 +174,17 @@ test('Empaquetado manual: un plato por ciclo, sobrantes conservados, pago y obje
   const inv = r.production.playerInventory; inv.change('ingredients', 8); inv.change('waste', 8);
   const before = r.money, spent = r.totalSpent;
   let last;
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 4; i++) {
     last = act(r, 'packing'); assert.equal(r.perform(last), null);
     assert.equal(inv.count('meals'), 7 - i);
-    if (i < 5) assert.equal(r.money, before);
+    if (i < 3) assert.equal(r.money, before);
   }
+  assert.equal(r.money, before); assert.equal(r.bulkOrders.state.phase, 'ready');
+  assert.equal(r.bulkOrders.firstCompleted, false); assert.equal(r.bulkOrders.guidance, 'board');
+  r.bulkOrders.update(1e6, 10, () => 0); // Walking back never erodes an earned bonus.
+  assert.equal(r.bulkOrders.state.phase, 'ready');
+  assert.equal(r.claimBulkOrder(order.id + 1), null);
+  assert.ok(r.claimBulkOrder(order.id)); assert.equal(r.claimBulkOrder(order.id), null);
   assert.equal(r.money, before + order.basePay + order.bonusPay);
   assert.equal(r.totalSpent, spent); assert.equal(r.production.availablePortions, 0);
   assert.equal(r.bulkOrders.firstCompleted, true); assert.equal(r.bulkOrders.state.phase, 'waiting');
@@ -166,12 +193,14 @@ test('Empaquetado manual: un plato por ciclo, sobrantes conservados, pago y obje
 });
 
 test('Sin bonificación se conserva comida y solo se abona la base al terminar', () => {
-  const r = make(); accept(r); cook(r, 6, false); act(r, 'packing');
+  const r = make(); accept(r); cook(r, 4, false); act(r, 'packing');
   const before = r.money;
   r.bulkOrders.update(90000, 10, () => 0);
-  assert.equal(r.bulkOrders.state.packed, 1); assert.equal(r.production.inventory.meals, 5);
-  for (let i = 0; i < 5; i++) act(r, 'packing');
-  assert.equal(r.money, before + 60); assert.equal(r.bulkOrders.firstCompleted, true);
+  assert.equal(r.bulkOrders.state.packed, 1); assert.equal(r.production.inventory.meals, 3);
+  for (let i = 0; i < 3; i++) act(r, 'packing');
+  assert.equal(r.money, before); assert.equal(r.bulkOrders.state.phase, 'ready');
+  assert.ok(r.claimBulkOrder(r.bulkOrders.state.id));
+  assert.equal(r.money, before + 40); assert.equal(r.bulkOrders.firstCompleted, true);
 });
 
 test('Cancelar devuelve exactamente lo empaquetado una vez; conserva carga y saldo, invalida comandos', () => {
@@ -195,11 +224,12 @@ test('DEV reinicia cajero, operación, encargos, comida y objetivo; identificado
   assert.equal(r.bulkOrders.state.phase, 'locked'); assert.equal(r.bulkOrders.firstCompleted, false);
   assert.equal(r.staff.employees.length, 0); assert.equal(r.activeReservations.size, 0);
   assert.equal(r.reservedProduction, 0); assert.equal(r.production.availablePortions, 0);
-  assert.equal(r.production.inventory.meals, 0); assert.equal(r.money, 0); assert.equal(r.totalSpent, 0);
+  assert.equal(r.production.inventory.meals, 0); assert.equal(r.money, 30); assert.equal(r.totalSpent, 0);
   assert.equal(r.perform(pack), null); assert.equal(r.perform(sale, 'cashier'), null);
   r.coins = 100; buy(r, 'cook'); assert.notEqual(r.bulkOrders.state.id, oldOrder.id);
   assert.equal(r.acceptBulkOrder(oldOrder.id), false); assert.equal(r.cancelBulkOrder(oldOrder.id), false);
   const b = new BulkOrders(); b.unlock(10); const id = b.state.id; b.accept(id);
-  for (let i = 0; i < 6; i++) b.pack(id, i);
+  for (let i = 0; i < 4; i++) b.pack(id, i);
+  assert.equal(b.firstCompleted, false); assert.ok(b.claim(id));
   assert.equal(b.firstCompleted, true); b.reset(); assert.equal(b.firstCompleted, false);
 });

@@ -9,7 +9,7 @@ import { canStand } from '../src/world/collision.ts';
 import { findPath } from '../src/world/navigation.ts';
 import { findCustomerPath, canStandCustomer } from '../src/world/customerNavigation.ts';
 
-const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 5000; return r; };
+const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 5000; r.production.restock(100); return r; };
 const buy = (r, id) => assert.ok(r.purchase(id, r.upgradeLevel(id)), r.purchaseState(id).problem);
 const advance = (r, ms) => { for (let t = 0; t < ms; t += 50) r.update(Math.min(50, ms - t)); };
 function until(r, predicate, limit = 180000) {
@@ -194,13 +194,13 @@ test('Seis reservas sucias esperan en plazas públicas distintas y limpieza acti
 
 test('Reinicio de ampliación completa elimina hornillo extra, mesas, tareas y arranque de llegadas', () => {
   const r = make();
-  for (const id of ['stove', ...Object.keys(UPGRADES).filter(id => id !== 'stove')]) for (let i = 0; i < UPGRADES[id].prices.length; i++) buy(r, id);
+  for (const id of ['stove', ...Object.keys(UPGRADES).filter(id => id !== 'stove' && id !== 'transport')]) for (let i = 0; i < UPGRADES[id].prices.length; i++) buy(r, id);
   deposit(r); r.production.perform('take-ingredients');
   r.perform({ kind: 'production', action: 'start-cooking', stoveId: 'stove-2', slotIndex: 0 });
   Object.assign(r.table('table-6'), { cleanliness: 'dirty', dirtySince: 0 }); advance(r, 2000);
   r.reset();
   assert.deepEqual(r.production.stoveIds, ['stove']); assert.equal(r.production.stoveSummary.empty, 4);
-  assert.equal(r.tables.length, 2); assert.equal(r.totalSpent + r.money + r.customers.length + r.activeReservations.size, 0);
+  assert.equal(r.tables.length, 2); assert.equal(r.totalSpent + r.pendingCash + r.customers.length + r.activeReservations.size, 0);
   assert.equal(r.staff.employees.length, 0); assert.equal(r.arrivalsStarted, false);
   assert.equal(r.interactionZones.some(z => z.id === 'stove-2' || z.id === 'table-6'), false);
   assert.equal(r.purchaseState('tables').price, 80); assert.equal(r.purchaseState('stove').price, 180);

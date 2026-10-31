@@ -61,7 +61,7 @@ export class UpgradePanel {
       case 'transport': message = { key: 'effect.transport', params: { capacity: UPGRADES.transport.capacities[level]! } }; break;
       case 'actionSpeed': message = { key: 'effect.actionSpeed', params: { seconds: UPGRADES.actionSpeed.durationsMs[level]! / 1000 } }; break;
       case 'stoveSpeed': message = { key: 'effect.stoveSpeed', params: { seconds: UPGRADES.stoveSpeed.durationsMs[level]! / 1000 } }; break;
-      case 'tables': message = { key: 'effect.tables', params: { count: 2 + level, max: 6 } }; break;
+      case 'tables': message = { key: 'effect.tables', params: { count: (this.restaurant.mode==='advanced'?2:0) + level, max: 6 } }; break;
       case 'stove': message = { key: 'effect.stove', params: { count: 1 + level, max: 2, slots: PRODUCTION.stoveSlots } }; break;
     }
     return t(message);
@@ -72,24 +72,27 @@ export class UpgradePanel {
       t('upgrade.success', { name: t(NAMES[this.purchaseFeedback.id]) }) : t('upgrade.unavailable')) : '';
     this.list.replaceChildren();
     for (const id of Object.keys(UPGRADES) as UpgradeId[]) {
+      if (id === 'transport' && !UPGRADES.transport.enabled) continue;
       const state = this.restaurant.purchaseState(id, this.position());
       const row = document.createElement('article');
       row.className = 'upgrade-row';
-      const status = state.price === null ? 'complete' : !state.problem ? 'available' :
+      const disabled = state.problem === 'purchase.disabledCapacity';
+      const status = disabled ? 'disabled' : state.price === null ? 'complete' : !state.problem ? 'available' :
         state.problem === 'purchase.funds' ? 'funds' : 'requirement';
       row.dataset.state = status;
       const description = document.createElement('div');
       const title = document.createElement('h3');
-      title.textContent = t(NAMES[id]);
+      title.textContent = t(id==='tables'&&this.restaurant.tableCount===0?'progress.firstTable':NAMES[id]);
       const current = document.createElement('p');
       const effect = this.effect(id, state.level);
-      current.textContent = id === 'tables' || id === 'stove' || id === 'cook' ? effect :
+      current.textContent = disabled ? effect : id === 'tables' || id === 'stove' || id === 'cook' ? effect :
         t('upgrade.level', { level: state.level, max: UPGRADES[id].prices.length, effect });
       const badge = document.createElement('span');
       badge.className = 'upgrade-status';
       badge.textContent = t(`status.${status}`);
       description.append(badge, title, current);
-      if (state.price !== null && ['transport', 'actionSpeed', 'stoveSpeed'].includes(id)) {
+      if(id==='tables'&&this.restaurant.tableCount===0){const included=document.createElement('p');included.textContent=t('progress.binIncluded');description.append(included);}
+      if (!disabled && state.price !== null && ['transport', 'actionSpeed', 'stoveSpeed'].includes(id)) {
         const next = document.createElement('p');
         next.className = 'upgrade-next';
         next.textContent = t('upgrade.next', { effect: this.effect(id, state.level + 1) });
@@ -99,7 +102,7 @@ export class UpgradePanel {
       button.type = 'button';
       button.dataset.upgrade = id;
       button.disabled = state.problem !== null;
-      button.textContent = state.price === null ? t(id === 'tables' ? 'limit.tables' : id === 'cook' ? 'limit.cooks' : 'limit.max') :
+      button.textContent = disabled ? t('status.disabled') : state.price === null ? t(id === 'tables' ? 'limit.tables' : id === 'cook' ? 'limit.cooks' : 'limit.max') :
         t('upgrade.buy', { price: state.price });
       button.setAttribute('aria-label', t('upgrade.aria', { name: t(NAMES[id]), action: button.textContent }));
       button.addEventListener('click', event => {

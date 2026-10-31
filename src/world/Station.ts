@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { i18n, t } from '../i18n';
-import { PALETTE as C, VISUAL as V } from '../visuals/theme';
+import { PALETTE as C, VISUAL as V, cssColor } from '../visuals/theme';
 import { checkmark, label, meal, progressBar, softShadow } from '../visuals/drawing';
 import { TABLE_POSITIONS } from './layout';
 import type { StationData } from './layout';
@@ -16,6 +16,7 @@ export class Station {
   private lastProductionKey = '';
   private lastReady = 0;
   private packingText?: Phaser.GameObjects.Text;
+  private economyText?: Phaser.GameObjects.Text;
   private readyAt = -Infinity;
 
   constructor(scene: Phaser.Scene, readonly data: StationData) {
@@ -117,6 +118,24 @@ export class Station {
         this.visual.add(this.packingText);
         break;
       }
+      case 'cash': {
+        g.fillStyle(C.greenDark).fillRoundedRect(4, -lift + 3, w - 8, d - 6, 5);
+        g.fillStyle(C.cream).fillRoundedRect(8, -lift + 6, w - 16, d - 11, 3);
+        break;
+      }
+      case 'supplier': {
+        // Crate, ingredient sacks and invoice: a stationary supply point, not a delivery vehicle.
+        for (const bx of [12, 32, 51]) {
+          g.fillStyle(C.cream).fillRoundedRect(bx, -lift + 7, 14, 19, 5);
+          g.fillStyle(C.green).fillRoundedRect(bx + 4, -lift + 11, 6, 10, 2);
+        }
+        g.lineStyle(3, C.woodDark).lineBetween(5, d - lift + 13, w - 5, d - lift + 13)
+          .lineBetween(5, d - lift + 26, w - 5, d - lift + 26);
+        g.fillStyle(C.cream).fillRoundedRect(w / 2 - 9, d - lift + 4, 18, 20, 2);
+        g.lineStyle(1.5, C.green).lineBetween(w / 2 - 5, d - lift + 10, w / 2 + 5, d - lift + 10)
+          .lineBetween(w / 2 - 5, d - lift + 16, w / 2 + 3, d - lift + 16);
+        break;
+      }
       case 'bin': {
         g.fillStyle(C.greenDark).fillRoundedRect(8, -lift + 8, w - 16, d - 17, 9);
         g.fillStyle(C.shadow, .35).fillRoundedRect(12, -lift + 12, w - 24, 10, 5);
@@ -127,13 +146,20 @@ export class Station {
         break;
       }
     }
+    if (data.kind === 'fridge' || data.kind === 'cash') {
+      this.economyText = label(scene, data.kind === 'cash' ? w + 28 : w / 2,
+        data.kind === 'cash' ? d - lift - 2 : d - lift + 10, '', 11, C.greenDark).setOrigin(.5)
+        .setStyle({ backgroundColor: cssColor(C.cream), padding: { x: 4, y: 2 } });
+      this.economyText.setName('economy-count-' + data.id);
+      this.visual.add(this.economyText);
+    }
     this.highlight = scene.add.graphics().setDepth(y + d + .1);
     this.highlight.lineStyle(V.stroke.emphasis, C.green, .6)
       .strokeRoundedRect(x - 3, y - lift - 3, w + 6, d + lift + 6, V.radius.furniture + 3).setVisible(false);
     this.productionArt = scene.add.graphics(); this.visual.add(this.productionArt);
   }
   showState(restaurant: Restaurant): void {
-    if (!['stove', 'counter', 'table', 'packing'].includes(this.data.kind)) return;
+    if (!['stove', 'counter', 'table', 'packing', 'fridge', 'cash'].includes(this.data.kind)) return;
     const production = restaurant.production, table = restaurant.table(this.data.id);
     const customer = table?.customerId ? restaurant.customer(table.customerId) : undefined;
     const slots = production.slotsFor(this.data.id), readyCount = slots.filter(slot => slot.status === 'ready').length;
@@ -144,14 +170,24 @@ export class Station {
     this.productionArt.y = -Math.sin(settle * Math.PI) * 1.5;
     const stoveKey = slots.map(slot => slot.status === 'cooking' ? Math.floor(slot.elapsedMs / slot.durationMs * 50) : slot.status).join(',');
     const bulk = restaurant.bulkOrders.state;
-    const packingKey = bulk.phase === 'active' ? bulk.id + ':' + bulk.packed : bulk.phase;
-    const key = [packingKey, i18n.current, stoveKey, production.availablePortions, table?.cleanliness, customer?.id, customer?.phase].join(':');
+    const packingKey = bulk.phase === 'active' || bulk.phase === 'ready' ? bulk.id + ':' + bulk.packed : bulk.phase;
+    const key = [packingKey, i18n.current, production.fridgeStock, restaurant.pendingCash, stoveKey, production.availablePortions, table?.cleanliness, customer?.id, customer?.phase].join(':');
     if (key === this.lastProductionKey) return;
     this.lastProductionKey = key;
     const g = this.productionArt.clear(), lift = this.data.height, d = this.data.footprint.height;
-    if (this.data.kind === 'packing') {
-      this.packingText?.setVisible(bulk.phase === 'active');
-      if (bulk.phase !== 'active') return;
+    if (this.data.kind === 'fridge') {
+      this.economyText?.setText(t('economy.fridgeCount', { count: production.fridgeStock }));
+    } else if (this.data.kind === 'cash') {
+      this.economyText?.setText(t('economy.cashCount', { amount: restaurant.pendingCash }));
+      const piles = restaurant.pendingCash === 0 ? 0 : Math.min(3, Math.ceil(restaurant.pendingCash / 20));
+      for (let i = 0; i < piles; i++) {
+        g.fillStyle(C.woodDark).fillEllipse(13 + i * 12, -lift + 11, 10, 5);
+        g.fillStyle(C.gold).fillEllipse(13 + i * 12, -lift + 8, 10, 5);
+        g.lineStyle(1, C.cream, .7).strokeEllipse(13 + i * 12, -lift + 8, 6, 3);
+      }
+    } else if (this.data.kind === 'packing') {
+      this.packingText?.setVisible(bulk.phase === 'active' || bulk.phase === 'ready');
+      if (bulk.phase !== 'active' && bulk.phase !== 'ready') return;
       this.packingText?.setText(t('bulk.box', { packed: bulk.packed, total: bulk.quantity }));
       g.fillStyle(C.woodDark).fillRoundedRect(17, -lift + 7, 43, 20, 4);
       g.fillStyle(C.wallShade).fillRoundedRect(20, -lift + 8, 37, 14, 3);

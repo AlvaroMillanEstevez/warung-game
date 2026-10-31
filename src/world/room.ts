@@ -5,7 +5,7 @@ import { localizedLabel, label, softShadow } from '../visuals/drawing';
 import { CLEANING_WAIT_POINTS, CUSTOMER_EXTERIOR, CUSTOMER_PUBLIC_Y, OFFICE, QUEUE_POINTS, WALL_SIGN, WELCOME_RUG } from './layout';
 import type { Rect } from './layout';
 
-export function drawRoom(scene: Phaser.Scene): void {
+export function drawRoom(scene: Phaser.Scene, office=true, repaired=true, dining=office): void {
   const g = scene.add.graphics().setDepth(V.depth.room);
   const { x, y, width: w, height: h } = ROOM, bottom = y + h, right = x + w;
   g.fillStyle(C.shadow, .04).fillRoundedRect(x - 24, 58, w + 56, bottom - 34, 24);
@@ -47,6 +47,7 @@ export function drawRoom(scene: Phaser.Scene): void {
   label(scene, rug.x + rug.width / 2, rug.y + 22, 'Selamat datang', 13, C.cream)
     .setOrigin(.5).setFontStyle('bold').setDepth(V.depth.floorText).setName('welcome-sign');
 
+  if(office) {
   const door = OFFICE.doorway, officeRug = OFFICE.rug;
   g.fillStyle(C.greenDark).fillRoundedRect(door.x, door.y, door.width, door.height, 7);
   g.fillStyle(C.shadow, .25).fillRoundedRect(door.x, door.y + 6, 7, door.height - 12, 3);
@@ -56,6 +57,7 @@ export function drawRoom(scene: Phaser.Scene): void {
   g.fillStyle(C.greenLight).fillRoundedRect(officeRug.x, officeRug.y, officeRug.width, officeRug.height, 12);
   g.lineStyle(1, C.cream, .6).strokeRoundedRect(officeRug.x + 5, officeRug.y + 5, officeRug.width - 10, officeRug.height - 10, 8);
 
+  }
   // Both lines fit one wall-mounted plaque above the dado. No masks or global text overlays.
   const sign = WALL_SIGN;
   g.fillStyle(C.shadow, .09).fillRoundedRect(sign.x + 2, sign.y + 3, sign.width, sign.height, 14);
@@ -75,13 +77,25 @@ export function drawRoom(scene: Phaser.Scene): void {
   g.fillStyle(C.cream, .6).fillTriangle(right - 126, 81, right - 76, 81, right - 126, 110);
   g.fillStyle(C.woodLight).fillRect(right - 90, 77, 4, 39);
 
-  for (const intent of ['dine-in', 'takeaway'] as const) {
+  for (const intent of (dining?['dine-in', 'takeaway']:['takeaway']) as ('dine-in'|'takeaway')[]) {
     const points = QUEUE_POINTS[intent], head = points[0]!;
     localizedLabel(scene, head.x + (intent === 'takeaway' ? 34 : -34), head.y + 8,
       intent === 'takeaway' ? 'queue.takeaway' : 'queue.dineIn', 10, C.muted, 65)
       .setOrigin(intent === 'takeaway' ? 0 : 1, 0).setLineSpacing(2).setDepth(V.depth.floorText);
-    if (DEBUG.customerMarkers) for (const p of points)
+    if(!repaired) {
+    g.fillStyle(C.muted,.45).fillRect(x,y,w,h);g.fillStyle(C.woodDark,.35).fillRect(x,62,w,82);
+    for(const [cx,cy] of [[180,170],[340,460],[680,570],[120,680],[720,100]]){
+      g.lineStyle(2,C.woodDark,.6).lineBetween(cx!,cy!,cx!+18,cy!+20).lineBetween(cx!+18,cy!+20,cx!+10,cy!+35).lineBetween(cx!+18,cy!+20,cx!+34,cy!+24);
+    }
+  }
+  if (DEBUG.customerMarkers) for (const p of points)
       g.lineStyle(1, C.green, .45).strokeEllipse(p.x, p.y, 27, 13);
+  }
+  if(!repaired) {
+    g.fillStyle(C.muted,.45).fillRect(x,y,w,h);g.fillStyle(C.woodDark,.35).fillRect(x,62,w,82);
+    for(const [cx,cy] of [[180,170],[340,460],[680,570],[120,680],[720,100]]){
+      g.lineStyle(2,C.woodDark,.6).lineBetween(cx!,cy!,cx!+18,cy!+20).lineBetween(cx!+18,cy!+20,cx!+10,cy!+35).lineBetween(cx!+18,cy!+20,cx!+34,cy!+24);
+    }
   }
   if (DEBUG.customerMarkers) for (const p of Object.values(CLEANING_WAIT_POINTS))
     g.lineStyle(1, C.coral, .65).strokeEllipse(p.x, p.y, 26, 13);

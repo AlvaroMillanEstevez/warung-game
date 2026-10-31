@@ -14,6 +14,11 @@
       <div class="hud" data-i18n-aria="app.restaurant">
         <button id="money-display" data-ui type="button" data-i18n-aria="app.moneyLabel"><span class="coin" aria-hidden="true"></span> <strong id="money-status"></strong></button>
       </div>
+      <button id="session-menu" class="session-menu" data-ui type="button" data-i18n="session.settings"></button>
+      <aside id="tutorial-objective" class="tutorial-objective" hidden></aside>
+      <div id="tutorial-direction" class="order-direction" hidden></div>
+      <p id="save-warning" class="save-warning" hidden role="status" data-i18n="save.failed"></p>
+      <dialog id="session-panel" data-ui><div id="session-content"></div></dialog>
       <dialog id="upgrades-panel" data-ui aria-labelledby="upgrades-title">
         <header class="upgrades-heading"><div><span class="eyebrow" data-i18n="office.eyebrow"></span><h2 id="upgrades-title" data-i18n="office.title"></h2><p id="upgrade-money"></p></div><button id="close-upgrades" type="button" data-i18n="common.close"></button></header>
         <div class="office-settings"><p class="upgrades-intro" data-i18n="office.intro"></p>
@@ -29,10 +34,16 @@
       <aside id="order-card" class="order-card" hidden>
         <span class="meal-icon" aria-hidden="true"></span><div><strong id="order-card-progress"></strong><small id="order-card-timer"></small></div>
       </aside>
+      <div id="order-direction" class="order-direction" hidden><span id="order-direction-arrow" aria-hidden="true">➜</span><span id="order-direction-label"></span></div>
       <dialog id="orders-panel" data-ui aria-labelledby="orders-title">
         <header class="upgrades-heading"><div><span class="eyebrow" data-i18n="bulk.eyebrow"></span><h2 id="orders-title" data-i18n="bulk.title"></h2></div><button id="close-orders" type="button" data-i18n="common.close"></button></header>
         <p class="upgrades-intro" data-i18n="bulk.paused"></p>
         <div id="order-content"></div>
+      </dialog>
+      <dialog id="supplier-panel" data-ui aria-labelledby="supplier-title">
+        <header class="upgrades-heading"><div><span class="eyebrow" data-i18n="supplier.eyebrow"></span><h2 id="supplier-title" data-i18n="supplier.title"></h2></div><button id="close-supplier" type="button" data-i18n="common.close"></button></header>
+        <p class="upgrades-intro" data-i18n="bulk.paused"></p>
+        <div id="supplier-content"></div>
       </dialog>
       <dialog id="debug-panel" data-ui aria-labelledby="debug-title">
         <header class="upgrades-heading"><h2 id="debug-title" data-i18n="debug.title"></h2><button id="close-debug" type="button" data-i18n="common.close"></button></header>

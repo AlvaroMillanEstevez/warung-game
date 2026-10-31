@@ -1,6 +1,6 @@
 # Localización es / en / id
 
-2026-10-05. La localización base está aprobada manualmente. Se amplían los mismos catálogos para cajero y encargos, sin biblioteca nueva ni guardado de partida.
+2026-10-05. La localización base está aprobada manualmente. Los catálogos de cajero/encargos se amplían el 2026-10-11 con requisito del tablón, orientación hacia tablón/empaquetado y aviso de destino; sin biblioteca nueva ni guardado de partida. Revisión 2026-10-12: Preparar encargo, entrega/cobro en tablón, recompensa fijada y capacidad deshabilitada (ahora oculta).
 
 ## Catálogos para revisión
 
@@ -10,7 +10,7 @@
 | English | [src/i18n/catalogs/en.ts](../src/i18n/catalogs/en.ts) |
 | Bahasa Indonesia | **[src/i18n/catalogs/id.ts](../src/i18n/catalogs/id.ts)** |
 
-Hay 176 claves estables en cada catálogo. Inglés define el tipo Key; español e indonesio deben satisfacer el mismo conjunto mediante TypeScript. Una prueba comprueba igualdad de claves, textos no vacíos y los mismos parámetros por traducción. No se añadió una biblioteca de idiomas ni se usan servicios externos.
+Hay 276 claves estables en cada catálogo. Inglés define el tipo Key; español e indonesio deben satisfacer el mismo conjunto mediante TypeScript. Una prueba comprueba igualdad de claves, textos no vacíos y los mismos parámetros por traducción. No se añadió una biblioteca de idiomas ni se usan servicios externos.
 
 Para revisar el indonesio con una hablante nativa:
 
@@ -32,7 +32,7 @@ Excepciones: Warung Kita, nasi goreng y Selamat datang decorativo. El volcado de
 
 Al iniciar, se lee warung-kita.language. Solo es, en o id son elecciones guardadas válidas. Sin una, se recorre navigator.languages en orden, usando navigator.language si la lista está vacía. Se reconoce la subetiqueta base de variantes como es-ES, es-MX, en-US, en-GB e id-ID, sin distinguir mayúsculas. Si ninguna coincide, inglés.
 
-No se usa ubicación, IP ni zona horaria. Detectar un idioma no escribe una preferencia: solo elegir en el selector la guarda. El acceso y la escritura a localStorage están protegidos ante excepciones; si se bloquean, el idioma cambia para la sesión. No hay persistencia del restaurante. Reiniciar desde DEV no borra la preferencia; recargar restaura solo el idioma, con partida nueva.
+No se usa ubicación, IP ni zona horaria. Detectar un idioma no escribe una preferencia: solo elegir en el selector la guarda. El acceso y la escritura a localStorage están protegidos ante excepciones; si se bloquean, el idioma cambia para la sesión. La partida normal y DEV se guardan por separado; reiniciar no borra la preferencia. Recargar ofrece continuar la partida guardada.
 
 ## Integración ligera
 
@@ -42,8 +42,24 @@ No se usa ubicación, IP ni zona horaria. Detectar un idioma no escribe una pref
 - El selector actualiza documento y panel, rótulos de Phaser, feedback, avisos y bocadillos ya visibles. Se conserva su duración restante; no se reinician relojes ni se muta la simulación.
 - localizedLabel actualiza setText y regenera la textura de texto de Phaser. Rótulos estrechos admiten ancho máximo. No hay texto funcional incrustado en imágenes descargadas o texturas estáticas.
 - Cada etiqueta retira su suscripción al destruirse; panel y escena también la liberan. No se reconstruye el restaurante al cambiar de idioma.
-- La cabecera conserva Cerrar fijo; las tarjetas y controles permiten saltos de línea en móvil. HUD mantiene dinero y añade una tarjeta compacta solo durante un encargo activo.
+- La cabecera conserva Cerrar fijo; las tarjetas y controles permiten saltos de línea en móvil. HUD mantiene dinero y añade una tarjeta compacta durante un encargo activo o listo para entregar.
+
+## Actualización local desde Windows/WSL
+
+Los textos de entrega bulk.ready, bulk.reward, bulk.readyHelp, bulk.claim y bulk.returnBoard están incluidos en los tres catálogos. Una prueba específica verifica su resolución y parámetros, además de la paridad general. Se ha comprobado su presentación en el navegador.
+
+vite.config.ts activa sondeo de archivos únicamente cuando Node se ejecuta en WSL. Las ediciones desde Windows a través de la ruta de WSL pueden no generar los eventos que Vite espera; el sondeo evita mantener módulos antiguos durante desarrollo. Si una pestaña conservaba una versión previa, recargar obtiene los catálogos actuales y reinicia la partida. Esto no modifica la detección de idioma ni añade almacenamiento.
 
 ## Verificación y límites
 
 Resultados, capturas y tamaños en [VERIFICATION.md](VERIFICATION.md). El navegador emulado no acredita comodidad en teléfono físico. La base tiene aprobación manual del usuario; las nuevas traducciones de encargos se ofrecen para revisión lingüística, especialmente indonesio. Sin publicación ni push.
+
+Economía física: se localizan proveedor, ofertas, motivos de bloqueo, saldo/deuda/stock, bandeja, avisos iniciales y de reposición, amortización y recompensa neta de encargos. Revisar los valores de supplier.*, economy.*, bulk.rewardNet, bulk.firstPaidNet y bulk.paidNet en src/i18n/catalogs/id.ts con una hablante nativa.
+
+Ajuste de suministro: supplier.largeLocked y supplier.largeUnlocked localizados en es/en/id; ofertas y confirmación reutilizan parámetros de cantidad/precio.
+
+Apertura y guardado: claves opening.*, tutorial.*, session.*, save.* y common.cancel. Selector también en Partida y ajustes y pantallas de inicio/continuación para no depender de la oficina aún ausente. El idioma conserva su clave anterior independiente.
+
+## Progresión normal (2026-10-21)
+
+Nuevas claves opening.office/orders, tutorial.office/orders y progress.*: construcciones, precios, oficina, primera mesa con papelera, requisitos de limpieza y aviso de zona de encargos. Revisar especialmente estos textos en id.ts con una hablante nativa.

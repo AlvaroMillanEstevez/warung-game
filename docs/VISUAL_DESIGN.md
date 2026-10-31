@@ -16,7 +16,7 @@ La alfombra anterior estaba bajo el punto inicial del jugador, alejada de la ent
 
 El subtítulo anterior estaba centrado en y114; su parte inferior coincidía con la franja verde que empezaba en y115. **Diagnóstico: posición y contraste**, no máscara ni contenedor. Ambos textos ya tenían profundidad -90 frente a la pared -100: no era necesario poner textos encima de todo.
 
-Ahora las dos líneas caben en una placa mural propia (WALL_SIGN), con contraste verde oscuro sobre crema. Siguen en la capa de pared/suelo. El marcador de Caja (símbolo, rótulo y barra) se eleva 100 unidades visuales, por encima del personaje, con una marca en el punto de suelo para separarlo del decorado; su punto físico queda idéntico. Tablón, retirada y empaquetado también usan señales legibles sobre su mobiliario, sin elevar todos los textos. En móvil el rótulo puede salir del encuadre al alejarse: la cámara mantiene seguimiento y zoom aprobados.
+Ahora las dos líneas caben en una placa mural propia (WALL_SIGN), con contraste verde oscuro sobre crema. Siguen en la capa de pared/suelo. El símbolo y la barra de Caja conservan la elevación de 100 unidades. Su nombre baja a 12 unidades sobre el punto físico, con origen inferior y profundidad de suelo para que el personaje pueda taparlo. Tablón y preparación de encargos usan señales legibles, sin elevar todos los textos. Preparar encargo queda en la esquina superior derecha junto al mostrador, con un único punto para recogida y empaquetado. Papelera trasladada a la esquina inferior izquierda para despejar Oficina/Encargos. Una caja lista permanece llena y el tablón muestra contorno dorado hasta Entregar y cobrar. En móvil el rótulo puede salir del encuadre al alejarse: la cámara mantiene seguimiento y zoom aprobados.
 
 ## Mobiliario y personajes
 
@@ -28,20 +28,28 @@ CharacterArt dibuja las piezas una vez. Caminar transforma piernas, brazos y tor
 
 ## Carga, estados e interacción
 
-CargoView conserva cantidades exactas. Ingredientes: paquetes rectangulares con banda de hoja. Platos: óvalos claros con comida. Residuos: bolsas redondeadas con nudo. Tres columnas de hasta 16 simultáneas, separadas por seis unidades; límites de inventario intactos. Las torres quedan al lado del cuerpo; avisos y transferencias se sitúan por encima y se actualiza su área de exclusión para comentarios.
+CargoView conserva cantidades exactas. Ingredientes: paquetes rectangulares con banda de hoja. Platos: óvalos claros con comida. Residuos: bolsas redondeadas con nudo. Tres columnas de hasta 16 simultáneas, separadas por seis unidades; representación preparada para 16, aunque esta revisión fija capacidad jugable 8 y deshabilita su mejora, cuya tarjeta no se muestra en la oficina. Las torres quedan al lado del cuerpo; avisos y transferencias se sitúan por encima y se actualiza su área de exclusión para comentarios.
 
 Cocción: wok y vapor más barra. Lista: plato y marca de verificación. Sucia: restos, servilleta y signo de exclamación. La lectura no depende solo de verde/coral. Interacciones: cápsula pequeña con flecha de recoger/depositar, moneda en Caja, puerta en Oficina y trazo de limpieza. Barras de permanencia y personal comparten dibujo; al quedar lista una ración tiene un asentamiento de 180 ms y 1,5 unidades como máximo, con tiempo activo. Sin partículas, filtros ni sacudidas.
 
 ## Interfaz y coste visual
 
-HUD permanente únicamente dinero; durante un encargo activo se suma una tarjeta compacta con plato/progreso y bonus, respetando áreas seguras y sin capturar movimiento. Panel con título, estado escrito, nombre/efecto y precio separados. Disponible, falta de saldo, requisito pendiente y completado tienen texto y tratamiento distintos. Cabecera fija con Cerrar de 46 px, visible al desplazar la lista en móvil. Oficina, pausa y protección de compras se mantienen.
+HUD permanente únicamente dinero; durante un encargo activo o listo se suma una tarjeta compacta con plato/progreso y bonus, respetando áreas seguras y sin capturar movimiento. Panel con título, estado escrito, nombre/efecto y precio separados. Disponible, falta de saldo, requisito pendiente y completado tienen texto y tratamiento distintos. Cabecera fija con Cerrar de 46 px, visible al desplazar la lista en móvil. Oficina, pausa y protección de compras se mantienen.
 
 Mobiliario y piezas de personajes se construyen al crear sus vistas. Gráficos de carga se reutilizan sin redibujar cantidades iguales; estados de cocina/progreso cambian por escalones visuales pequeños. Marcha usa transformaciones de piezas. Sin motor 3D, assets externos, nuevas dependencias, audio ni reglas añadidas.
 
 ## Ampliación provisional: encargos
 
-Tablón pequeño de corcho/madera con hoja y chincheta en la pared del fondo. Una exclamación discreta identifica la oferta; una flecha señala empaquetado hasta completar el primer encargo. Mesa compacta junto al tablón, con cinta y caja abierta que dibuja las raciones empaquetadas y muestra contador/barra. Se vacía al completar, cancelar o reiniciar. Las piezas se reutilizan y redibujan cuando cambia estado, nunca por cada frame.
+Revisión 2026-10-11: tablón de corcho/madera en pared izquierda debajo de Oficina. Hojas, chinchetas e icono de caja, rótulo Encargos y requisito discreto antes del cocinero. Su punto de suelo no se eleva y está separado de oficina, papelera y demás estaciones. Una exclamación identifica ofertas; orientación inferior solo fuera de cámara hasta primera apertura. Empaquetado conserva su sitio en cocina: aviso al aceptar, orientación durante 8 s activos y flecha local hasta primera visita. Ayudas no capturan entradas, se ocultan mientras hay arrastre o panel y quedan lejos del dinero/carga del jugador. Mesa compacta de empaquetado, con cinta y caja abierta que dibuja las raciones empaquetadas y muestra contador/barra. Se vacía al completar, cancelar o reiniciar. Las piezas se reutilizan y redibujan cuando cambia estado, nunca por cada frame.
 
 Cajero con delantal coral, pajarita y placa, situado detrás del mostrador; sin carga inventada. Panel del tablón comparte colores y cabecera fija con oficina. Traducciones largas fluyen y permiten desplazamiento vertical, con cierre accesible.
 
 Ver comprobaciones actuales en [VERIFICATION.md](VERIFICATION.md) y localización en [LOCALIZATION.md](LOCALIZATION.md). Arte provisional aprobado; no producir assets definitivos sin nueva petición.
+
+## Proveedor y bandeja (2026-10-20)
+
+Añadidos mediante Graphics reutilizados, con el tema existente: suministro con sacos/factura cerca de entrada y bandeja tras el mostrador a la izquierda de Caja. Sus huellas y zonas están separadas de las anteriores. Frigorífico muestra cantidad física exacta; bandeja importe exacto y hasta tres montones representativos. Se redibujan al cambiar datos/idioma, sin objetos por moneda. Proveedor usa diálogo con cierre accesible y botones adaptables; HUD conserva solo cartera. Sin assets externos ni renovación artística adicional.
+
+## Apertura guiada
+
+Normal inicia sin muebles operativos, oficina ni tablón. Suelo/paredes deteriorados mediante tinte y grietas Graphics; reforma única retira deterioro. Marca de construcción solo para el objetivo actual; instalación materializa el mismo mueble existente. HUD añade objetivo breve y menú de partida; orientación fuera de cámara y textos es/en/id. Sin renovación artística ni assets externos.

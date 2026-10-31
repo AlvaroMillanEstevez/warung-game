@@ -9,7 +9,7 @@ import { canInteract } from '../src/world/interaction.ts';
 
 const buy = (r, id) => assert.ok(r.purchase(id, r.upgradeLevel(id)), r.purchaseState(id).problem);
 const make = () => {
-  const r = new Restaurant(); r.coins = 5000;
+  const r = new Restaurant(); r.coins = 5000; r.production.restock(100);
   buy(r, 'cook'); buy(r, 'stove'); buy(r, 'cook');
   return r; // No player movement: no automatic arrivals during isolated production tests.
 };
@@ -20,8 +20,8 @@ function until(r, condition, limit = 240000) {
 }
 
 test('Segundo cocinero: requisito operativo, precio, descuento único, máximo dos y capacidad heredada', () => {
-  const r = new Restaurant(); r.coins = 5000;
-  buy(r, 'transport'); buy(r, 'actionSpeed'); buy(r, 'cook');
+  const r = new Restaurant(); r.coins = 5000; r.production.restock(100);
+  assert.equal(r.purchase('transport', 0), false); buy(r, 'actionSpeed'); buy(r, 'cook');
   const before = r.money, spent = r.totalSpent;
   assert.equal(r.purchaseState('cook').problem, 'purchase.secondCook');
   assert.equal(r.purchaseState('cook').price, 220);
@@ -35,16 +35,16 @@ test('Segundo cocinero: requisito operativo, precio, descuento único, máximo d
   assert.equal(r.purchaseState('cook').problem, 'limit.cooks');
   for (const worker of r.staff.employees) {
     assert.equal(worker.role, 'cook');
-    assert.deepEqual(worker.inventory.state.limits, { ingredients: 12, meals: 12 });
+    assert.deepEqual(worker.inventory.state.limits, { ingredients: 8, meals: 8 });
   }
-  buy(r, 'transport'); buy(r, 'actionSpeed');
+  assert.equal(r.purchase('transport', 0), false); buy(r, 'actionSpeed');
   until(r, () => r.staff.employees.every(w => w.task?.durationMs === 400));
-  for (const worker of r.staff.employees) assert.deepEqual(worker.inventory.state.limits, { ingredients: 16, meals: 16 });
+  for (const worker of r.staff.employees) assert.deepEqual(worker.inventory.state.limits, { ingredients: 8, meals: 8 });
   assert.deepEqual(r.staff.employees.map(w => w.assignedStove), ['stove', 'stove-2']);
 });
 
 test('Contratar el segundo reasigna sin teletransporte y libera una carga del primer cocinero en el otro hornillo', () => {
-  const r = new Restaurant(); r.coins = 5000; buy(r, 'stove'); buy(r, 'cook');
+  const r = new Restaurant(); r.coins = 5000; r.production.restock(100); buy(r, 'stove'); buy(r, 'cook');
   const w = r.staff.get('cook');
   w.position = { x: 470, y: 288 }; w.inventory.change('ingredients', 2);
   r.update(50); assert.equal(w.task.command.stoveId, 'stove-2');

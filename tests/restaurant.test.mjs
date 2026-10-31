@@ -10,7 +10,7 @@ import { INTERACTION } from '../src/config.ts';
 
 const zone = id => INTERACTION_ZONES.find(z => z.id === id);
 // Isolate manual admissions from the new first-movement arrival schedule.
-const make = options => { const r = new Restaurant({ arrivalMs: 1e9, eatingMs: 100000, ...options }); r.arrivalsActive = true; r.firstArrival = false; return r; };
+const make = options => { const r = new Restaurant({ arrivalMs: 1e9, eatingMs: 100000, ...options }); r.production.restock(100); r.arrivalsActive = true; r.firstArrival = false; return r; };
 function cook(p) {
   assert.ok(p.perform('take-ingredients')); assert.ok(p.perform('start-cooking'));
   p.update(p.cookingMs); assert.ok(p.perform('take-meal'));
@@ -45,7 +45,7 @@ test('Venta atómica: la cabeza más antigua recibe una ración y paga una vez; 
   assert.equal(r.perform({ kind: 'checkout', customerId: b, tableId: null }), null);
   const before = r.production.inventory;
   assert.ok(r.perform(command));
-  assert.equal(r.money, 10); assert.equal(r.production.availablePortions, 2);
+  assert.equal(r.pendingCash, 10); assert.equal(r.production.availablePortions, 2);
   assert.equal(r.orders[0].status, 'takeaway');
   assert.deepEqual(r.production.inventory, before);
   assert.equal(r.perform(command), null);
@@ -57,7 +57,7 @@ test('Venta atómica: la cabeza más antigua recibe una ración y paga una vez; 
 test('Mesa limpia: cliente lleva plato desde caja y solo come cuando llega al asiento', () => {
   const r = make({ eatingMs: 1000 }); stock(r);
   const id = queued(r), sale = act(r, 'checkout'), order = r.orders[0];
-  assert.equal(r.production.availablePortions, 0); assert.equal(r.money, 10);
+  assert.equal(r.production.availablePortions, 0); assert.equal(r.pendingCash, 10);
   assert.equal(r.customer(id).carryingMeal, true);
   assert.equal(r.customer(id).phase, 'walking-to-table');
   assert.equal(order.status, 'carried');
@@ -70,7 +70,7 @@ test('Mesa limpia: cliente lleva plato desde caja y solo come cuando llega al as
   until(r, () => r.customer(id).phase === 'leaving');
   assert.equal(order.status, 'consumed');
   assert.equal(r.table(sale.tableId).cleanliness, 'dirty');
-  assert.equal(r.table(sale.tableId).customerId, null); assert.equal(r.money, 10);
+  assert.equal(r.table(sale.tableId).customerId, null); assert.equal(r.pendingCash, 10);
   until(r, () => r.customers.length === 0); assert.equal(r.orders.length, 0);
 });
 
@@ -82,7 +82,7 @@ test('Mesas asignadas bloquean su fila pero permiten llevar; no existe reparto m
   const blocked = queued(r), take = queued(r, 'takeaway');
   assert.equal(r.offer(zone('checkout')).command.customerId, take);
   act(r, 'checkout');
-  assert.equal(r.money, 30); assert.equal(r.production.availablePortions, 1);
+  assert.equal(r.pendingCash, 30); assert.equal(r.production.availablePortions, 1);
   assert.equal(r.table(a.tableId).customerId, first); assert.equal(r.table(b.tableId).customerId, second);
   assert.equal(r.customer(blocked).orderId, null);
   assert.equal(r.perform({ kind: 'checkout', customerId: blocked, tableId: a.tableId }), null);
@@ -100,7 +100,7 @@ test('Dos reservas sucias esperan en posiciones distintas junto a caja; limpiar 
   assert.notDeepEqual(r.customer(a).position, r.customer(b).position);
   assert.ok(r.customer(a).carryingMeal && r.customer(b).carryingMeal);
   const take = queued(r, 'takeaway'); assert.equal(act(r, 'checkout').customerId, take);
-  assert.equal(r.money, 50); assert.equal(r.production.availablePortions, 0);
+  assert.equal(r.pendingCash, 50); assert.equal(r.production.availablePortions, 0);
   assert.equal(r.customer(a).eatingElapsedMs, 0);
   cook(r.production); r.production.perform('take-ingredients');
   const clean = act(r, saleA.tableId);
@@ -114,7 +114,7 @@ test('Dos reservas sucias esperan en posiciones distintas junto a caja; limpiar 
   until(r, () => r.customer(a).phase === 'eating');
   assert.deepEqual(r.customer(a).position, TABLE_POSITIONS[saleA.tableId].seat);
   assert.equal(r.customer(b).phase, 'waiting-cleaning');
-  assert.equal(r.money, 50);
+  assert.equal(r.pendingCash, 50);
 });
 
 test('Prioriza mesa limpia; limpiar durante el camino de espera redirige desde la posición actual', () => {
@@ -166,10 +166,10 @@ test('Caja continua llena 8/8/8; sin stock no acumula tiempo y al reponer inicia
     }
   };
   for (let i = 0; i < 200; i++) tick(50);
-  assert.equal(r.money, 20); assert.equal(d.progress, 0);
+  assert.equal(r.pendingCash, 20); assert.equal(d.progress, 0);
   assert.deepEqual(r.production.inventory, before);
-  r.production.perform('store-meal'); tick(799); assert.equal(r.money, 20);
-  tick(1); assert.equal(r.money, 30);
+  r.production.perform('store-meal'); tick(799); assert.equal(r.pendingCash, 20);
+  tick(1); assert.equal(r.pendingCash, 30);
 });
 
 test('Comando invalidado por stock no cobra ni reserva parcialmente', () => {
@@ -177,7 +177,7 @@ test('Comando invalidado por stock no cobra ni reserva parcialmente', () => {
   const locked = r.offer(zone('checkout')).command;
   r.production.sellAvailable();
   assert.equal(r.perform(locked), null);
-  assert.equal(r.money, 0); assert.equal(r.customer(id).orderId, null);
+  assert.equal(r.pendingCash, 0); assert.equal(r.customer(id).orderId, null);
   assert.equal(r.customer(id).carryingMeal, false);
   assert.ok(r.tables.every(t => t.customerId === null));
 });
@@ -192,7 +192,7 @@ test('Reinicio desde cada estado de autoservicio elimina plato, espera, reserva,
     assert.equal(r.customer(id).phase, phase);
     r.production.perform('take-ingredients'); r.production.perform('start-cooking');
     r.reset();
-    assert.equal(r.elapsedMs + r.money + r.customers.length + r.orders.length + r.production.availablePortions, 0);
+    assert.equal(r.elapsedMs + r.pendingCash + r.customers.length + r.orders.length + r.production.availablePortions, 0);
     assert.equal(r.queue('dine-in').length + r.queue('takeaway').length, 0);
     assert.ok(r.tables.every(t => t.cleanliness === 'clean' && t.customerId === null));
     assert.equal(r.production.inventory.ingredients + r.production.inventory.meals + r.production.inventory.waste, 0);
@@ -233,7 +233,7 @@ test('Rutas y puntos de espera libres; movimiento respeta muebles y velocidad, t
     assert.ok(canStand(z.position, obstacles)); assert.equal(closestZone(z.position, INTERACTION_ZONES, obstacles), z);
   }
   const counter = INTERACTION_ZONES.filter(z => z.stationId === 'counter');
-  assert.equal(counter.length, 3);
+  assert.deepEqual(counter.map(z => z.id).sort(), ['checkout', 'deposit']);
   for (const a of counter) for (const b of counter) if (a !== b)
     assert.ok(Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y) > 2 * INTERACTION.radius);
   assert.ok(Math.hypot(counter[0].position.x - counter[1].position.x, counter[0].position.y - counter[1].position.y) > 2 * INTERACTION.radius);
@@ -249,5 +249,5 @@ test('Rutas y puntos de espera libres; movimiento respeta muebles y velocidad, t
     }
     const offer = r.offer(zone('checkout')); if (offer.command) r.perform(offer.command);
   }
-  assert.equal(r.customers.length, 0); assert.equal(r.money, 40);
+  assert.equal(r.customers.length, 0); assert.equal(r.pendingCash, 40);
 });

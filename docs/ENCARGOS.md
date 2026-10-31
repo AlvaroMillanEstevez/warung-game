@@ -1,71 +1,84 @@
-# Experimento: cajero y encargos grandes
+# Encargos, preparación y cobro
 
-2026-10-05. La base y la localización están aprobadas. Esta ampliación queda pendiente de revisión manual del usuario. Es una actividad voluntaria para compartir producción entre clientes y encargos; no se presupone que mejore la retención.
+**Progresión normal vigente:** ver [PROGRESSION.md](PROGRESSION.md). Oficina 50; primera mesa con papelera 40 y siguientes 60/80/140/220/320; zona de encargos 50 tras cocinero. Sin zona construida no hay ofertas. Estas compras cuentan como inversión; DEV mantiene sus instalaciones concedidas sin gasto.
 
-## Valores provisionales
 
-Todos en src/config.ts, sin dependencias nuevas ni servicios externos:
+Revisión del 2026-10-12. Tras aprobar distribución y entrega, ajusta progresión 4→6→9, tandas de cocina, demanda avanzada y textos visibles. Pendiente de revisión manual, sin publicación ni push.
 
-| Regla | Valor |
-| --- | --- |
-| Rapidez global | 800 / 600 / 400 ms; mejoras de 80 / 160 monedas |
-| Abrir oficina o tablón | 1500 ms, independiente de rapidez |
-| Cajero | 150 monedas; requiere primer cocinero; máximo uno |
-| Primera oferta | 6 raciones de nasi goreng |
-| Siguientes ofertas | 6, 8 o 10 raciones, elección uniforme |
-| Pago base | Cantidad × precio normal (10) |
-| Bonificación | 50 % de la base |
-| Plazo de bonificación | 90 segundos activos desde aceptar |
-| Espera de nueva oferta | 45 segundos activos desde completar o cancelar |
+## Recorrido del jugador
 
-Un encargo de 6 paga 60 de base y 30 de bonificación; de 8, 80 + 40; de 10, 100 + 50. Los ingresos nunca cuentan como gasto acumulado. La compra del cajero sí cuenta. Demanda, precio normal, cocción, movimiento, consumo y demás precios conservados.
+1. Contratar al primer cocinero por 100 monedas habilita la construcción física de la zona de encargos (50). Construir instala tablón/empaquetado y desbloquea la oferta de **4 nasi goreng**. En DEV el conjunto ya está instalado. El tablón de Encargos sigue debajo de Oficina, en la pared izquierda. Permanecer 1,5 s abre el panel y pausa la simulación.
+2. Aceptar el encargo inicia el plazo de **90 s activos** para la bonificación. El cocinero sigue produciendo y depositando en el mostrador; el stock es compartido con las ventas habituales, sin reservar comida al aceptar.
+3. Ir a **Preparar encargo**, en la esquina superior derecha junto al mostrador. Solo hay un punto de acción: si el jugador lleva platos, empaqueta uno; si no lleva ninguno, recoge uno del mostrador. Cada operación tiene un ciclo completo independiente de 0,8/0,6/0,4 s. Quedarse allí alterna recogida y empaquetado mientras haya comida y falten raciones. Se admiten también platos traídos directamente del hornillo.
+4. Al empaquetar la última ración queda **Listo para entregar**. La caja permanece llena, aparece un aviso breve y el tablón recibe contorno dorado, insignia y orientación si está fuera de cámara. El HUD indica volver a entregar.
+5. Regresar al tablón y pulsar **Entregar y cobrar**. Ese botón entrega la caja, abona las monedas una sola vez y marca el primer encargo cumplido. No se transporta físicamente la caja ni se requiere otro destino.
 
-Los ciclos capturan rapidez al empezar a actuar. Mejorar no acorta el ciclo actual de jugador, cocineros, limpieza o cajero. El siguiente usa la nueva duración; trabajadores recién contratados heredan mejoras existentes.
+Primer encargo: **4 raciones, 40 monedas base + 20 de bonificación**. Segundo: **6 raciones, 60 + 30**. Tercero: **9 raciones, 90 + 45**. La bonificación se gana si el último plato se empaquetó antes de agotar los 90 s. El importe queda fijado al terminar de empaquetar: el paseo de vuelta no consume la bonificación ni hace caducar el cobro. No hay otra recompensa, objeto ni premio extra por el objetivo introductorio.
 
-## Una única caja
+## Estados y transferencias
 
-El cajero camina a su puesto detrás del mostrador, sin reservar durante el trayecto. Usa las mismas reglas de cabeza elegible por espera, stock real, cobro, entrega y reserva de mesa. Sin acción válida espera y reanuda con un ciclo completo.
+BulkOrders mantiene locked → offer → active → ready → waiting. Una sola oferta/encargo, sin cola genérica. Los IDs no se reutilizan tras reiniciar.
 
-La reserva checkout es exclusiva para jugador o cajero. Quien empieza conserva su ciclo: acercarse no lo reinicia ni permite una venta paralela. Completar revalida cliente, stock, mesa y ruta antes de descontar/cobrar/entregar. La reserva se libera al completar, cancelar, invalidar o reiniciar. El cajero no lleva comida ni cambia de profesión.
+- Oferta sin caducidad; aceptar el mismo ID dos veces no duplica.
+- Recogida: una ración real del stock al inventario. Venta y retirada revalidan el stock al completar; no pueden consumir dos veces la última ración.
+- Empaquetado: un plato del inventario a la caja, revalidando ID y progreso. Conserva ingredientes, residuos y platos sobrantes.
+- La zona compartida prioriza empaquetar lo que ya se lleva. Encargos de 9 se resuelven sin ampliar la capacidad de 8.
+- La última transferencia fija pago/bonificación y cambia a ready; todavía no suma dinero ni gasto, no completa el objetivo y no genera otra oferta.
+- Solo cobrar el ID listo abona, completa el objetivo y comienza la espera de 45 s activos. Doble pulsación o ID antiguo no duplican el pago.
+- Durante active se puede cancelar, con confirmación. Lo empaquetado vuelve al stock una sola vez; se conservan carga y saldo. Después comienza la espera de 45 s. Una caja ya lista solo permite entregar y cobrar.
+- Primeros encargos completados: 4, 6 y 9. Después alternan 6/9, sin repetir la cantidad anterior. Cancelar durante la introducción no avanza al siguiente paso; solo entregar y cobrar. DEV vuelve a 4. Un delta grande no acumula ofertas ni adelanta su aceptación.
+- Todos los relojes usan tiempo activo; oficina, tablón, DEV, foco y pestaña oculta pausan. Sin progreso offline.
 
-## Estados y comida
+## Distribución y capacidad
 
-BulkOrders conserva cuatro estados explícitos: locked, offer, active y waiting. Son datos internos, independientes de Phaser/DOM.
+El tablón queda en x90/y581; la papelera se traslada a la esquina inferior izquierda (huella x90/y715, punto x170/y735), despejando Oficina y Encargos. El punto de descanso de limpieza se adapta sin invadir la papelera. Rutas comprobadas también con seis mesas y dos hornillos.
 
-1. El primer cocinero desbloquea una oferta de 6. Aviso breve y señal del tablón, sin abrir ventana.
-2. La oferta no caduca. Aceptar su ID inicia un solo encargo con contador a cero y 90 s de bonificación; aceptar de nuevo no duplica.
-3. Empaquetar completa automáticamente y paga una vez, o cancelar devuelve comida. Ambos pasan a espera de 45 s.
-4. Al terminar la espera aparece una sola oferta. Un delta grande no acumula ofertas ni adelanta su aceptación.
+Preparar encargo ocupa x820/y145, con punto x852/y211. Sustituye al antiguo punto Retirar platos; recogida y empaquetado comparten una sola zona, separada de Caja y Depositar. No invade el segundo hornillo.
 
-El reloj se congela en oficina, tablón, DEV, pausa por foco y pestaña oculta. Reanudar descarta delta previo. Llegar a cero solo elimina bonificación; no cancela ni destruye comida.
+El nombre Caja baja a 12 unidades por encima del punto físico, con origen inferior y profundidad de suelo: el personaje puede taparlo. El símbolo y la barra elevados se mantienen. La acción de caja no cambia.
 
-Los platos proceden del circuito actual. Pueden ir directamente del hornillo al empaquetado o recogerse del stock en **Retirar platos**, detrás y a la derecha del mostrador. Cada ciclo retira uno, solo con encargo activo, respetando capacidad de platos y unidades pendientes menos platos transportados. No se aparta stock al aceptar. Si una venta consume la última ración antes de terminar la retirada, esta se invalida y no conserva progreso. Los cocineros reponen al disminuir el stock.
+**Capacidad del equipo está oculta y deshabilitada.** No se crea su tarjeta en el panel. Restaurant rechaza la compra, incluso si se intenta por otra vía: no cambia dinero, gasto, nivel ni inventarios. La configuración 12/16 queda conservada para una eventual revisión, con UPGRADES.transport.enabled en false. Personal presente y nuevas contrataciones usan 8 en sus categorías.
 
-Empaquetar transfiere uno por ciclo y revalida ID/progreso del mismo encargo. Ingredientes y residuos no lo bloquean. La caja representa su contenido y muestra contador/barra. Los platos sobrantes siguen con el jugador al completar.
+## Arranque local con monedas
 
-Cancelar pide confirmación dentro del tablón. Devuelve exactamente lo empaquetado al stock una sola vez; conserva lo transportado y no cambia dinero. No se convierte la comida en premio ni penalización.
+Con npm run dev:
 
-## Presentación e integración
+- [600 monedas](http://localhost:5173/?monedas=600)
+- [500 monedas](http://localhost:5173/?monedas=500)
+- [2000 monedas para equipo avanzado](http://127.0.0.1:5173/?monedas=2000)
+- [Inicio normal](http://localhost:5173/)
 
-Tablón en la pared del fondo junto al empaquetado, entre frigorífico y hornillo. Nuevas huellas/puntos en src/world/layout.ts; las estaciones existentes no se desplazan. El indicador de Caja sube visualmente 100 unidades sobre el personaje, con una marca en el suelo mediante src/visuals/theme.ts sin mover la zona física.
+Acepta enteros de 0 a 100000, solo con desarrollo Vite y host localhost/127.0.0.1/::1. Ausente, inválido o fuera de límite equivale a 0. La build de producción ignora el parámetro. No persiste nada ni desbloquea empleados, encargos, mejoras o llegadas, y no suma gasto válido. DEV restaura el saldo inicial de esa URL; recargar sin parámetro vuelve al comienzo normal. Código en src/dev/startup.ts.
 
-Oficina y tablón abren tras 1,5 s y requieren salir/volver. El panel cancela teclas/gestos y evita transmitir toques al lienzo. Una tarjeta pequeña aparece solo durante el encargo: nasi goreng, progreso y segundos de bonus; agotado el plazo muestra el texto sin bonificación.
+Con 600 se pueden comprar cocinero (100), limpieza (80), segundo hornillo (180) y dos mesas (80 + 140): gasto 580, saldo 20, cuatro mesas y frecuencia 1,7. La capacidad deshabilitada no cuenta como compra. Demanda 65/35 y tramos 0/300/500/1300 con frecuencias 0,8/1,2/1,7/2,4. Con cuatro mesas, dos hornillos, dos cocineros, limpieza y dos mejoras de rapidez/cocción el gasto es 1340: intervalo 3,33 s. Añadir cajero cuesta 150 (total 1490).
 
-La misión «Completa tu primer encargo» es opcional y sin recompensa extra. Una flecha discreta indica empaquetado durante el primer encargo; la primera entrega marca cumplimiento y muestra celebración localizada. No hay sistema genérico de misiones.
+## Presentación, idiomas y reinicio
 
-Nuevos textos en los catálogos existentes src/i18n/catalogs/{es,en,id}.ts: prefijo bulk.*, estaciones, acciones/resultados y cajero. Se mantienen parámetros completos y números del locale. [Catálogo indonesio para revisión](../src/i18n/catalogs/id.ts).
+El tablón sigue visible desde el inicio con requisito de cocinero. El primer desbloqueo no abre ventanas. Orientación inicial hasta primera apertura real; nueva orientación de retorno solo mientras hay entrega pendiente. Preparar encargo conserva la ayuda breve y su señal local inicial. Ayudas sin capturar entradas, ocultas al arrastrar/panel/pausa. Cámara normal sin cambios.
 
-DEV borra cajero, operación de caja, oferta/activo/espera, comida empaquetada, caja dibujada, temporizadores, objetivo, paneles y referencias. IDs anteriores no se reutilizan. Reinicio y recarga no conservan partida; solo idioma.
+Los paneles conservan pausa, cancelación de gestos, permanencia de 1,5 s y requisito de salir/volver. La tarjeta compacta aparece durante preparación y entrega pendiente; desaparece al cobrar/cancelar.
 
-## Recorrido manual de evaluación
+Textos y parámetros completos es/en/id en src/i18n/catalogs. Revisar station.packing, bulk.how, bulk.ready*, bulk.claim, bulk.reward, bulk.returnBoard y sus parámetros con una hablante nativa en [id.ts](../src/i18n/catalogs/id.ts).
 
-1. Reinicia desde DEV y sirve normalmente hasta contratar al primer cocinero (100). Observa el aviso y la señal del tablón del fondo. Abre y cierra sin aceptar; vuelve más tarde: la oferta sigue allí.
-2. Acepta los 6 platos. Produce tú algunas raciones y llévalas directamente al empaquetado. Revisa el ritmo de 0,8 s, contenido de caja, HUD y pago de 90 si llegas a tiempo. El objetivo se marca sin premio añadido.
-3. Contrata cajero (150) y limpieza si lo deseas. Al aparecer la siguiente oferta, acepta y retira parte del mostrador. Deja algunas raciones para clientes: observa ventas, reposición y el tiempo que dedicas al encargo. Compara con retirar todas las disponibles.
-4. Ayuda en caja antes de que el cajero reclame una venta, y después mientras ya está atendiendo. Solo una barra/operación debe estar activa en caja y cada cliente paga una vez. Depósito y retirada siguen accesibles.
-5. Compra rapidez: siguientes acciones a 0,6 y 0,4 s; oficina/tablón mantienen 1,5 s. Abre paneles y cambia de pestaña: el bonus debe congelarse. Cerrar no debe abrir de nuevo hasta salir/volver.
-6. Deja agotar un plazo. Conserva la comida y termina: cobra solo base. En otro encargo empaqueta dos, conserva platos contigo y cancela con confirmación: vuelven exactamente dos al mostrador, sin cambiar saldo ni carga.
-7. Alterna es/en/id en oficina. Revisa ofertas, cantidades, cajero, expiración, confirmación y mensajes en vertical/horizontal. Reinicia con encargo y caja activos: desaparecen todos sus estados.
-8. Valora si elegir cuándo aceptar y cuánto stock retirar aporta decisiones, o si solo genera desplazamiento repetitivo. Anota saturación de filas, falta/exceso de stock y facilidad de llegar al bonus. Estos datos guiarán otra petición; no se ajustan automáticamente.
+DEV limpia caja, recompensa pendiente, visitas, señales, todos los estados y temporizadores, además del restaurante habitual. Restaura el saldo de la sesión local y capacidades 8. Solo se guarda el idioma.
 
-Pruebas, evidencia y límites en [VERIFICATION.md](VERIFICATION.md). Móvil emulado no acredita comodidad en un dispositivo físico. Nuevas recetas, frigoríficos, horas punta, edición de distribución y locales quedan solo en roadmap. Sin publicación ni push.
+## Recorrido manual de revisión
+
+1. Abrir con 600 monedas; visitar papelera y tablón bloqueado. Verificar que Oficina/Encargos quedan despejados.
+2. Comprar las cinco mejoras anteriores y comprobar saldo 20, mejora de capacidad ausente y segundo hornillo accesible.
+3. Aceptar la oferta. Ir al único punto Preparar encargo y esperar: observar plato recogido, plato empaquetado y contador.
+4. Llegar a 4/4: saldo sigue en 20, caja visible, mensaje de listo y tablón señalado. Volver y cobrar: saldo 80 si se ganó bonus, 60 si no. Esperar 45 s activos: la siguiente oferta debe ser de 6; tras completarla, la de 9.
+5. Cerrar/reabrir: no hay segundo pago. Cancelar otro encargo parcialmente empaquetado y comprobar devolución.
+6. Comprobar ayuda en caja, ventas del cajero compitiendo con recogida, limpieza hasta la nueva papelera y circulación con todas las mesas.
+7. Alternar es/en/id y revisar móvil. Reiniciar con entrega pendiente: nada residual; el saldo vuelve al indicado en la URL.
+8. Abrir con 2000 monedas y comprar el equipo avanzado. Observar tandas de ambos cocineros y el nuevo intervalo de 3,33 s. Terminan de recoger cocciones propias y descargan toda la tanda, con objetivo 4 y entregas parciales si no queda trabajo. No se presupone mejora de retención.
+
+## Diagnóstico anterior (2026-10-11)
+
+El tablón antiguo sí existía y abría: se ganó dinero y contrató al cocinero mediante juego normal. Su ubicación detrás del hornillo, tamaño y ausencia de orientación dificultaban descubrirlo. La revisión anterior lo trasladó junto a Oficina. Las capturas discovery-* acreditan ese diagnóstico, pero preceden a la distribución y entrega descritas aquí.
+
+Resultados actuales en [VERIFICATION.md](VERIFICATION.md). Móvil emulado no equivale a teléfono físico.
+
+## Integración económica (2026-10-20)
+
+Hay que comprar ingredientes al proveedor: el frigorífico comienza vacío. El fiado permite iniciar producción incluso si las contrataciones han consumido el saldo de prueba. Las cantidades, base, bonus y plazos del encargo no cambian. Al entregar, se amortiza min(deuda, floor((base + bonus ganado)/2)); solo el neto entra en cartera. El panel listo muestra bruto/devolución/neto cuando hay deuda. Empaquetado y cancelación no pagan ni amortizan; cancelar devuelve comida al stock. Ver [ECONOMY.md](ECONOMY.md).

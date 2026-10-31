@@ -74,6 +74,8 @@ export class Controls {
     return magnitude > 1 ? { x: x / magnitude, y: y / magnitude } : { x, y };
   }
 
+  get dragging(): boolean { return this.pointerId !== null; }
+
   get tryingToMove(): boolean {
     // Opposing keys and pushing into furniture still count, even with zero physical displacement.
     return !this.paused && !this.blocked && (this.keys.size > 0 || Math.hypot(this.touch.x, this.touch.y) > 0);

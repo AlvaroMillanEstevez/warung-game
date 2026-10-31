@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Restaurant } from '../src/simulation/Restaurant.ts';
 import { CustomerComments } from '../src/simulation/CustomerComments.ts';
-import { COMMENTS, CUSTOMERS, DEMAND, ROOM, UPGRADES } from '../src/config.ts';
+import { COMMENTS, CUSTOMERS, DEMAND, ROOM } from '../src/config.ts';
 import { QUEUE_POINTS, QUEUE_SPACING, EXTRA_TABLES, INTERACTION_ZONES, CLEANING_WAIT_POINTS } from '../src/world/layout.ts';
 import { canStand, moveWithCollisions } from '../src/world/collision.ts';
 import { canStandCustomer } from '../src/world/customerNavigation.ts';
 
-const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 2000; r.arrivalsActive = true; r.firstArrival = false; return r; };
+const make = () => { const r = new Restaurant({ arrivalMs: 1e9 }); r.coins = 2000; r.production.restock(100); r.arrivalsActive = true; r.firstArrival = false; return r; };
 const buy = (r, id) => assert.ok(r.purchase(id, r.upgradeLevel(id)), r.purchaseState(id).problem);
 const advance = (r, ms) => { for (let t = 0; t < ms; t += 50) r.update(Math.min(50, ms - t)); };
 function until(r, condition, limit = 90000) {
@@ -15,36 +15,36 @@ function until(r, condition, limit = 90000) {
   assert.ok(condition());
 }
 
-test('Capacidad de equipo: 8/12/16 en empleados presentes y nuevos, solo categorías aplicables', () => {
+test('Capacidad fija de equipo: 8, mejora deshabilitada antes y después de contratar', () => {
   for (const hiredBefore of [true, false]) {
     const r = make();
     if (hiredBefore) { buy(r, 'cook'); buy(r, 'cleaner'); }
-    for (const level of [0, 1, 2]) {
-      if (level) buy(r, 'transport');
-      if (!hiredBefore && level !== 2) continue;
-      if (!hiredBefore) { buy(r, 'cook'); buy(r, 'cleaner'); }
-      const cook = r.staff.get('cook').inventory, cleaner = r.staff.get('cleaner').inventory;
-      const capacity = UPGRADES.transport.capacities[level];
-      assert.deepEqual(cook.state.limits, { ingredients: capacity, meals: capacity });
-      assert.deepEqual(cleaner.state.limits, { waste: capacity });
-      assert.equal(cook.state.waste, undefined); assert.equal(cleaner.state.ingredients, undefined); assert.equal(cleaner.state.meals, undefined);
-      for (const [inventory, category] of [[cook, 'ingredients'], [cook, 'meals'], [cleaner, 'waste']]) {
-        while (inventory.count(category) < capacity) assert.ok(inventory.change(category, 1));
-        assert.equal(inventory.change(category, 1), false);
-      }
-      assert.equal(cook.change('waste', 1), false); assert.equal(cleaner.change('meals', 1), false);
+    const money = r.money, spent = r.totalSpent;
+    assert.equal(r.purchaseState('transport').problem, 'purchase.disabledCapacity');
+    assert.equal(r.purchase('transport', 0), false);
+    assert.equal(r.money, money); assert.equal(r.totalSpent, spent);
+    if (!hiredBefore) { buy(r, 'cook'); buy(r, 'cleaner'); }
+    assert.equal(r.teamCapacity, 8);
+    const cook = r.staff.get('cook').inventory, cleaner = r.staff.get('cleaner').inventory;
+    assert.deepEqual(cook.state.limits, { ingredients: 8, meals: 8 });
+    assert.deepEqual(cleaner.state.limits, { waste: 8 });
+    assert.equal(cook.state.waste, undefined); assert.equal(cleaner.state.ingredients, undefined);
+    for (const [inventory, category] of [[cook, 'ingredients'], [cook, 'meals'], [cleaner, 'waste']]) {
+      for (let i = 0; i < 8; i++) assert.ok(inventory.change(category, 1));
+      assert.equal(inventory.change(category, 1), false);
     }
+    assert.equal(cook.change('waste', 1), false); assert.equal(cleaner.change('meals', 1), false);
   }
 });
 
-test('El cocinero aprovecha la capacidad de ingredientes sin exigir un lote completo para el stock restante', () => {
-  for (const [level, stock, expected] of [[0, 0, 8], [1, 0, 12], [2, 11, 1]]) {
+test('El cocinero recoge ingredientes por tandas y conserva sobrantes sin exceder el stock objetivo', () => {
+  for (const [stock, expected] of [[0, 8], [11, 4]]) {
     const r = make();
-    for (let i = 0; i < level; i++) buy(r, 'transport');
     r.production.stock = stock; buy(r, 'cook');
     const worker = r.staff.get('cook');
     until(r, () => worker.task?.command.action === 'start-cooking');
     assert.equal(worker.inventory.count('ingredients'), expected);
+    if (stock === 11) { until(r, () => r.production.availablePortions === 12); assert.equal(worker.inventory.count('ingredients'), 3); }
   }
 });
 
@@ -71,25 +71,24 @@ test('Tres frecuencias absolutas, compras válidas, aviso único y siguiente int
   assert.equal(r.purchase('cook', 0), false); assert.equal(r.totalSpent, 0);
   r.coins = 5000;
   r.playerMoved({ x: 378, y: 735 }, { x: 379, y: 735 });
-  buy(r, 'cook'); buy(r, 'cleaner'); buy(r, 'transport'); // 240
-  assert.equal(r.arrivalIntervalMs, 10000);
-  r.update(4000);
-  buy(r, 'actionSpeed'); // 320: changing demand preserves the first countdown.
+  buy(r, 'cook'); buy(r, 'tables'); buy(r, 'tables'); // 320
+  assert.equal(r.arrivalIntervalMs, 8000 / 1.2);
+  r.update(4000); // Purchases preserve the first countdown.
   assert.equal(r.arrivalElapsedMs, 4000);
   assert.equal(r.arrivalIntervalMs, 8000 / 1.2);
   assert.equal(r.takeDemandNotice(), true); assert.equal(r.takeDemandNotice(), false);
   r.update(3999); assert.equal(r.customers.length, 0);
   r.update(1); assert.equal(r.customers.length, 1);
   r.update(5000);
-  buy(r, 'stove'); buy(r, 'stoveSpeed'); // 600 exactly
-  assert.equal(r.totalSpent, 600); assert.equal(r.demandTier, 2);
-  assert.equal(r.arrivalIntervalMs, 8000 / 1.5); assert.equal(r.arrivalElapsedMs, 0);
+  buy(r, 'stove'); // 500 exactly
+  assert.equal(r.totalSpent, 500); assert.equal(r.demandTier, 2);
+  assert.equal(r.arrivalIntervalMs, 8000 / 2); assert.equal(r.arrivalElapsedMs, 0);
   assert.equal(r.takeDemandNotice(), true); assert.equal(r.takeDemandNotice(), false);
-  assert.equal(r.purchase('stove', 0), false); assert.equal(r.totalSpent, 600);
+  assert.equal(r.purchase('stove', 0), false); assert.equal(r.totalSpent, 500);
   r.update(r.arrivalIntervalMs - 1); assert.equal(r.customers.length, 1);
   r.update(1); assert.equal(r.customers.length, 2);
-  buy(r, 'transport'); buy(r, 'stoveSpeed');
-  assert.equal(r.arrivalIntervalMs, 8000 / 1.5); assert.equal(r.takeDemandNotice(), false);
+  buy(r, 'actionSpeed'); buy(r, 'stoveSpeed');
+  assert.equal(r.arrivalIntervalMs, 8000 / 2); assert.equal(r.takeDemandNotice(), false);
   r.update(600000); assert.equal(r.customers.length, 3);
   r.update(1); assert.equal(r.customers.length, 3);
   r.reset(); assert.equal(r.totalSpent, 0); assert.equal(r.demandTier, 0);
@@ -97,25 +96,27 @@ test('Tres frecuencias absolutas, compras válidas, aviso único y siguiente int
 });
 
 test('Límites exactos de gasto y salto de varios umbrales eligen el tramo final una sola vez', () => {
-  for (const [spent, frequency] of [[299, .8], [300, 1.2], [599, 1.2], [600, 1.5]]) {
+  for (const [spent, frequency] of [[299, .8], [300, 1.2], [499, 1.2], [500, 2], [999, 2], [1000, 2.4]]) {
     const r = new Restaurant(); r.coins = 1000;
     r.spent = spent - 100; // Isolate each purchase boundary without changing provisional prices.
     buy(r, 'cook'); assert.equal(r.totalSpent, spent); assert.equal(r.demandFrequency, frequency);
   }
   const r = new Restaurant(); r.coins = 1000;
-  r.spent = 500; // A previously unobserved tier fixture; one purchase crosses both tier checks.
+  r.spent = 400; // A previously unobserved tier fixture; one purchase crosses both tier checks.
   buy(r, 'cook'); assert.equal(r.demandTier, 2);
   assert.equal(r.takeDemandNotice(), true); assert.equal(r.takeDemandNotice(), false);
 });
 
-test('70/30 decide intención una vez y descarta llegada si esa fila está llena; nunca desvía', () => {
-  let value = .69;
+test('65/35 decide intención una vez y descarta llegada si esa fila está llena; nunca desvía', () => {
+  let value = .649999;
   const r = new Restaurant({ queueLimits: { 'dine-in': 1, takeaway: 1 } }, () => value);
   r.playerMoved({ x: 378, y: 735 }, { x: 379, y: 735 });
   r.update(DEMAND.firstArrivalDelayMs); assert.equal(r.queue('dine-in').length, 1);
   r.update(r.arrivalIntervalMs); assert.equal(r.customers.length, 1); assert.equal(r.queue('takeaway').length, 0);
-  value = .7; r.update(r.arrivalIntervalMs); assert.equal(r.queue('takeaway').length, 1);
+  value = .65; r.update(r.arrivalIntervalMs); assert.equal(r.queue('takeaway').length, 1);
   advance(r, 40000); assert.equal(r.customers.length, 2);
+  assert.equal(CUSTOMERS.dineInChance, .65);
+  assert.equal(r.customers[0].intent, 'dine-in'); // New arrivals never rewrite existing intentions.
   assert.deepEqual(CUSTOMERS.queueLimits, { 'dine-in': 20, takeaway: 10 });
 });
 

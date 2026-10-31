@@ -1,5 +1,5 @@
 import type { Key } from '../i18n/core.ts';
-import { PRODUCTION } from '../config.ts';
+import { ECONOMY, PRODUCTION } from '../config.ts';
 import type { StationKind } from '../world/layout.ts';
 import { Inventory } from './Inventory.ts';
 import type { InventoryLimits, InventoryState } from './Inventory.ts';
@@ -17,6 +17,26 @@ export class Production {
   private readonly kitchens = new Map<string, StoveState[]>();
   private readonly slotCount: number;
   private stock = 0;
+  private ingredients: number = ECONOMY.initialIngredients;
+  private readonly ingredientClaims = new Set<string>();
+  private lowStockNotice = false;
+  get fridgeStock(): number { return this.ingredients; }
+  get reservedIngredients(): readonly string[] { return [...this.ingredientClaims]; }
+  ingredientsAvailable(actorId = 'player'): number {
+    return this.ingredients - this.ingredientClaims.size + (this.ingredientClaims.has(actorId) ? 1 : 0);
+  }
+  reserveIngredient(actorId: string): boolean {
+    if (this.ingredientsAvailable(actorId) < 1) return false;
+    this.ingredientClaims.add(actorId); return true;
+  }
+  releaseIngredient(actorId: string): void { this.ingredientClaims.delete(actorId); }
+  restock(count: number): void {
+    if (!Number.isSafeInteger(count) || count < 0 || !Number.isSafeInteger(this.ingredients + count))
+      throw new Error('Invalid ingredient quantity');
+    this.ingredients += count;
+    if (this.ingredients > ECONOMY.lowStockThreshold) this.lowStockNotice = false;
+  }
+  takeLowStockNotice(): boolean { const pending = this.lowStockNotice; this.lowStockNotice = false; return pending; }
   cookingMs: number;
   private readonly initialCookingMs: number;
   private readonly initialLimits: InventoryLimits;
@@ -50,7 +70,7 @@ export class Production {
   availableAt(kind: StationKind, inventory = this.playerInventory, slotAllowed: (index: number) => boolean = () => true,
     stoveId = 'stove'): Availability {
     switch (kind) {
-      case 'fridge': return inventory.canAdd('ingredients') ? { action: 'take-ingredients', label: 'action.ingredients' } :
+      case 'fridge': return this.ingredients < 1 ? { action: null, reason: 'economy.fridgeEmpty' } : inventory.canAdd('ingredients') ? { action: 'take-ingredients', label: 'action.ingredients' } :
         { action: null, reason: 'reason.ingredientsFull' };
       case 'stove': {
         const slots = this.kitchens.get(stoveId);
@@ -66,14 +86,16 @@ export class Production {
         { action: null, reason: 'reason.noMealsCarried' };
       case 'bin': return inventory.has('waste') ? { action: 'discard', label: 'action.discard' } :
         { action: null, reason: 'reason.noWaste' };
+      case 'supplier': return { action: null, reason: 'supplier.hint' };
+      case 'cash': return { action: null, reason: 'economy.cashEmpty' };
       case 'packing': return { action: null, reason: 'bulk.needActive' };
       case 'table': return { action: null, reason: 'reason.tableNeedsDirt' };
     }
   }
-  canPerform(action: ProductionAction, slotIndex?: number, inventory = this.playerInventory, stoveId = 'stove'): boolean {
+  canPerform(action: ProductionAction, slotIndex?: number, inventory = this.playerInventory, stoveId = 'stove', actorId = 'player'): boolean {
     const slots = this.kitchens.get(stoveId);
     switch (action) {
-      case 'take-ingredients': return inventory.canAdd('ingredients');
+      case 'take-ingredients': return this.ingredientsAvailable(actorId) > 0 && inventory.canAdd('ingredients');
       case 'store-meal': return inventory.has('meals');
       case 'discard': return inventory.has('waste');
       case 'start-cooking': return inventory.has('ingredients') && (slotIndex === undefined ?
@@ -82,10 +104,15 @@ export class Production {
         this.availableAt('stove', inventory, () => true, stoveId).action === action : slots?.[slotIndex]?.status === 'ready');
     }
   }
-  perform(action: ProductionAction, slotIndex?: number, inventory = this.playerInventory, stoveId = 'stove'): Key | null {
-    if (!this.canPerform(action, slotIndex, inventory, stoveId)) return null;
+  perform(action: ProductionAction, slotIndex?: number, inventory = this.playerInventory, stoveId = 'stove', actorId = 'player'): Key | null {
+    if (!this.canPerform(action, slotIndex, inventory, stoveId, actorId)) return null;
     switch (action) {
-      case 'take-ingredients': inventory.change('ingredients', 1); return 'result.ingredient';
+      case 'take-ingredients': {
+        const before = this.ingredients;
+        inventory.change('ingredients', 1); this.ingredients--; this.releaseIngredient(actorId);
+        if (before > ECONOMY.lowStockThreshold && this.ingredients <= ECONOMY.lowStockThreshold) this.lowStockNotice = true;
+        return 'result.ingredient';
+      }
       case 'start-cooking': {
         const slots = this.kitchens.get(stoveId)!;
         const index = slotIndex ?? slots.findIndex(s => s.status === 'empty');
@@ -120,8 +147,18 @@ export class Production {
       return elapsedMs + 0.000001 >= slot.durationMs ? { status: 'ready' } : { ...slot, elapsedMs };
     }));
   }
+  snapshot() { return {ingredients:this.ingredients,stock:this.stock,player:this.playerInventory.snapshot(),
+    cookingMs:this.cookingMs,kitchens:[...this.kitchens].map(([id,slots])=>({id,slots:slots.map(s=>({...s}))})),lowStockNotice:this.lowStockNotice}; }
+  restore(data:ReturnType<Production['snapshot']>):void {
+    this.ingredients=data.ingredients;this.stock=data.stock;this.cookingMs=data.cookingMs;
+    this.playerInventory.restore(data.player);this.kitchens.clear();
+    for(const kitchen of data.kitchens)this.kitchens.set(kitchen.id,kitchen.slots.map(s=>({...s})));
+    this.ingredientClaims.clear();this.lowStockNotice=data.lowStockNotice;
+  }
+  removeStoves(): void { this.kitchens.clear(); }
   reset(): void {
     this.playerInventory.reset(this.initialLimits); this.cookingMs = this.initialCookingMs;
     this.kitchens.clear(); this.addStove('stove'); this.stock = 0;
+    this.ingredients = ECONOMY.initialIngredients; this.ingredientClaims.clear(); this.lowStockNotice = false;
   }
 }

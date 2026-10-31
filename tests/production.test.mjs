@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { Production } from '../src/simulation/Production.ts';
 import { DwellInteraction } from '../src/simulation/DwellInteraction.ts';
 
+// Finite fixture supply for isolated production rules; live games start with an empty fridge.
+const stocked = options => { const p = new Production(options); p.restock(100); return p; };
+
 function cookOne(p) {
   assert.ok(p.perform('take-ingredients'));
   assert.ok(p.perform('start-cooking'));
@@ -10,7 +13,7 @@ function cookOne(p) {
   assert.ok(p.perform('take-meal'));
 }
 test('Ocho ingredientes con ocho ciclos completos sin salir; lleno espera sin progreso', () => {
-  const p = new Production(), dwell = new DwellInteraction();
+  const p = stocked(), dwell = new DwellInteraction();
   for (let i = 1; i <= 8; i++) {
     const target = { id: 'fridge', action: p.availableAt('fridge').action };
     assert.equal(dwell.update(target, ['fridge'], false, 799), null);
@@ -22,7 +25,7 @@ test('Ocho ingredientes con ocho ciclos completos sin salir; lleno espera sin pr
   assert.equal(dwell.progress, 0);
 });
 test('Cuatro posiciones con tiempos independientes; lista sigue ocupada hasta recoger', () => {
-  const p = new Production();
+  const p = stocked();
   for (let i = 0; i < 4; i++) p.perform('take-ingredients');
   for (let i = 0; i < 4; i++) {
     assert.ok(p.perform('start-cooking'));
@@ -41,7 +44,7 @@ test('Cuatro posiciones con tiempos independientes; lista sigue ocupada hasta re
   assert.deepEqual(p.stoveSummary, { cooking: 1, ready: 3, empty: 0 });
 });
 test('Prioriza recogida, después carga; cargar con platos llenos y posición vacía es válido', () => {
-  const p = new Production();
+  const p = stocked();
   for (let i = 0; i < 8; i++) cookOne(p);
   p.perform('take-ingredients');
   assert.equal(p.availableAt('stove').action, 'start-cooking');
@@ -55,7 +58,7 @@ test('Prioriza recogida, después carga; cargar con platos llenos y posición va
   assert.equal(p.inventory.meals, 8);
 });
 test('Capacidades independientes de ingredientes, platos y residuos sin distinciones de pedido', () => {
-  const p = new Production();
+  const p = stocked();
   for (let i = 0; i < 8; i++) cookOne(p);
   for (let i = 0; i < 8; i++) { p.perform('take-ingredients'); assert.ok(p.collectWaste()); }
   assert.deepEqual(p.inventory, { ingredients: 8, meals: 8, waste: 8, limits: p.limits });
@@ -66,7 +69,7 @@ test('Capacidades independientes de ingredientes, platos y residuos sin distinci
   assert.ok(p.perform('take-meal')); assert.equal(p.inventory.meals, 8);
 });
 test('Mostrador sin límite; papelera solo residuos y venta descuenta una ración', () => {
-  const p = new Production();
+  const p = stocked();
   for (let i = 0; i < 12; i++) { cookOne(p); assert.ok(p.perform('store-meal')); }
   assert.equal(p.availablePortions, 12); assert.equal(p.perform('store-meal'), null);
   cookOne(p); p.perform('take-ingredients');
@@ -79,7 +82,7 @@ test('Mostrador sin límite; papelera solo residuos y venta descuenta una ració
   assert.deepEqual(p.inventory, { ...before, waste: 0 });
 });
 test('Los límites y el tiempo son configurables y el reinicio vacía toda la producción', () => {
-  const p = new Production({ inventory: { ingredients: 2, meals: 1, waste: 3 }, stoveSlots: 2, cookingMs: 500 });
+  const p = stocked({ inventory: { ingredients: 2, meals: 1, waste: 3 }, stoveSlots: 2, cookingMs: 500 });
   cookOne(p); p.perform('store-meal'); cookOne(p);
   p.perform('take-ingredients'); p.perform('start-cooking'); p.collectWaste();
   p.reset(); p.update(10000);
@@ -88,7 +91,7 @@ test('Los límites y el tiempo son configurables y el reinicio vacía toda la pr
   assert.equal(p.availablePortions, 0);
 });
 test('Hornillo encadena carga y recogida quieto; cada acción requiere un ciclo nuevo', () => {
-  const p = new Production(), dwell = new DwellInteraction();
+  const p = stocked(), dwell = new DwellInteraction();
   for (let i = 0; i < 4; i++) p.perform('take-ingredients');
   let pending = null, transfers = 0;
   for (let time = 0; time < 30000; time += 50) {

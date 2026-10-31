@@ -37,6 +37,13 @@ export class Staff {
     for (const worker of this.workers.values()) worker.inventory.setLimits(worker.role === 'cook' ?
       { ingredients: capacity, meals: capacity } : worker.role === 'cleaner' ? { waste: capacity } : {});
   }
+  snapshot() { return this.employees.map(w=>({id:w.id,position:{...w.position},inventory:w.inventory.snapshot()})); }
+  restore(data:ReturnType<Staff['snapshot']>,capacity:number):void {
+    this.reset();
+    for(const w of data) { this.hire(w.id,capacity);const worker=this.get(w.id)!;
+      worker.position={...w.position};worker.inventory.restore(w.inventory); }
+    // Work and reservations start fresh. A carried item stays carried; nothing transfers on load.
+  }
   reset(): void { this.workers.clear(); }
   cancel(id: string, restaurant: Restaurant): void {
     const worker = this.get(id);
@@ -99,19 +106,28 @@ export class Staff {
       Math.hypot(b.position.x - worker.position.x, b.position.y - worker.position.y));
     const ready = stoves.find(stove => stove.slots.some((s, i) =>
       s.status === 'ready' && r.resourceAvailable('slot:' + stove.id + ':' + i, worker.id)));
-    if (inventory.meals === inventory.limits.meals) return select('deposit');
+    const deposit = r.interactionZones.find(z => z.id === 'deposit')!.position;
+    const atDeposit = Math.hypot(worker.position.x - deposit.x, worker.position.y - deposit.y) < .1;
+    const mealBatch = Math.min(STAFF.cookBatchSize, inventory.limits.meals);
+    // Finish unloading once at the counter; do not return to a stove halfway through a delivery.
+    if (inventory.meals > 0 && (atDeposit || inventory.meals >= mealBatch)) return select('deposit');
     if (ready && worker.inventory.canAdd('meals')) return select(ready.id);
-    if (inventory.meals > 0) return select('deposit'); // Deposit partial batches without waiting for full capacity.
     const needed = Math.max(0, STAFF.cookStockTarget - r.committedProduction);
-    if (needed === 0) return null;
     const empty = stoves.find(stove => stove.slots.some((s, i) =>
       s.status === 'empty' && r.resourceAvailable('slot:' + stove.id + ':' + i, worker.id)));
-    if (!empty) return null;
-    const batch = Math.min(inventory.limits.ingredients, needed);
-    const fridge = r.interactionZones.find(z => z.id === 'fridge')!.position;
-    const atFridge = Math.hypot(worker.position.x - fridge.x, worker.position.y - fridge.y) < 0.1;
-    if (inventory.ingredients === 0 || (atFridge && inventory.ingredients < batch)) return select('fridge');
-    return select(empty.id);
+    // Keep using ingredients already brought to the stove before making a partial delivery.
+    if (needed > 0 && empty && inventory.ingredients > 0) {
+      const fridge = r.interactionZones.find(z => z.id === 'fridge')!.position;
+      const atFridge = Math.hypot(worker.position.x - fridge.x, worker.position.y - fridge.y) < .1;
+      const ingredientsBatch = Math.min(inventory.limits.ingredients, Math.max(STAFF.cookBatchSize, needed));
+      if (atFridge && inventory.ingredients < ingredientsBatch && r.production.ingredientsAvailable(worker.id) > 0) return select('fridge');
+      return select(empty.id);
+    }
+    // Wait for our own cooking to finish, even after the first portion becomes ready.
+    if (stoves.some(stove => stove.slots.some(slot => slot.status === 'cooking'))) return null;
+    if (inventory.meals > 0) return select('deposit'); // Never strand a partial final batch.
+    if (needed === 0 || !empty || r.production.ingredientsAvailable(worker.id) < 1) return null;
+    return select('fridge');
   }
   private planCleaner(worker: Employee, r: Restaurant): { offer: Offer; destination: Point } | null {
     const dirty = r.tables.filter(t => t.cleanliness === 'dirty' && r.resourceAvailable('table:' + t.id, worker.id)).sort((a, b) => {

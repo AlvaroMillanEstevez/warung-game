@@ -29,6 +29,8 @@ export class DebugPanel {
       filas: { dentro: r.queue('dine-in').length, llevar: r.queue('takeaway').length }, clientes: r.customers.length,
       capacidadEquipo: r.teamCapacity, accionMs: r.teamActionMs,
       encargos: r.bulkOrders.state, primerEncargoCompletado: r.bulkOrders.firstCompleted, reservas: [...r.activeReservations],
+      dineroDisponible: r.money, efectivoCaja: r.pendingCash, deudaProveedor: r.supplierDebt, ingredientesFrigorifico: r.production.fridgeStock,
+      reservasIngredientes: r.production.reservedIngredients,
       jugador: r.production.inventory, stock: r.production.availablePortions,
       produccionComprometida: r.committedProduction, cargasReservadas: r.reservedProduction,
       personal: r.staff.employees.map(w => ({ id: w.id, hornillo: w.assignedStove, inventario: w.inventory.state, tarea: w.task })),

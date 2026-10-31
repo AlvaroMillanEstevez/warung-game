@@ -14,6 +14,20 @@ test('Catálogos completos: mismas claves, parámetros y textos no vacíos en es
   }
 });
 
+test('Entrega y cobro: textos resueltos en los tres idiomas, sin claves crudas ni parámetros pendientes', () => {
+  const keys = ['bulk.ready', 'bulk.reward', 'bulk.readyHelp', 'bulk.claim', 'bulk.returnBoard', 'bulk.readyNotice', 'status.disabled', 'purchase.disabledCapacity'];
+  for (const language of ['es', 'en', 'id']) {
+    const issues = [], l = new Localization(language, catalogs, issue => issues.push(issue));
+    for (const key of keys) {
+      const text = l.t(key, { payment: 60, bonus: 20 });
+      assert.notEqual(text, key, language + ':' + key);
+      assert.doesNotMatch(text, /\{\w+\}/, language + ':' + key);
+    }
+    assert.deepEqual(issues, []);
+    assert.ok(l.t('bulk.reward', { payment: 60, bonus: 20 }).includes('60'));
+  }
+});
+
 test('Detección: elección guardada, orden del navegador, variantes regionales y respaldo inglés', () => {
   assert.equal(detectLanguage('id', ['es-ES', 'en-US']), 'id');
   assert.equal(detectLanguage('es', ['id-ID']), 'es');
