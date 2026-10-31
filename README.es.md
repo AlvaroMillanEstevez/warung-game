@@ -10,7 +10,7 @@ Prototipo de gestión de un warung para navegador. Hitos 1–4, revisión de exp
 ## Ejecutar desde WSL
 
 ```bash
-cd /home/koke/projects/warungGame
+npm ci
 npm run dev
 ```
 
@@ -21,9 +21,9 @@ Abre [el juego local](http://127.0.0.1:5173/) en Windows. Node >=22.18, npm >=10
 - npm run build: tipos y compilación de producción.
 - npm run preview: versión compilada en el puerto 4173.
 
-Para probar compras: [600 monedas](http://localhost:5173/?monedas=600) o [500 monedas](http://localhost:5173/?monedas=500). Solo funciona en desarrollo y localhost (también 127.0.0.1/::1). No desbloquea nada ni suma gasto; DEV restaura ese saldo. Sin parámetro se inicia/continúa la partida normal; una nueva empieza con 150. La build de producción ignora el parámetro DEV.
+Para probar compras: [600 monedas](http://localhost:5173/?monedas=600) o [500 monedas](http://localhost:5173/?monedas=500). Cualquier valor de `monedas` abre el escenario avanzado (DEV) con ese saldo, no la partida normal. Solo funciona en desarrollo y localhost (también 127.0.0.1/::1). No desbloquea nada ni suma gasto; DEV restaura ese saldo. Sin parámetro se inicia/continúa la partida normal; una nueva empieza con 150. La build de producción ignora el parámetro DEV.
 
-Para probar el equipo avanzado puedes usar [2000 monedas](http://127.0.0.1:5173/?monedas=2000). Cuatro mesas, dos hornillos, dos cocineros, limpieza y ambas mejoras de rapidez/cocción cuestan 1340 (1490 con cajero).
+Para probar el equipo avanzado puedes usar [2000 monedas](http://127.0.0.1:5173/?monedas=2000). Cuatro mesas adicionales, el segundo hornillo, dos cocineros y limpieza cuestan 1340 (1490 con cajero); las mejoras de rapidez y cocción van aparte.
 
 En WSL, Vite vigila los archivos mediante sondeo para detectar también las ediciones desde Windows y actualizar los módulos traducidos. Recargar ofrece continuar la instantánea local, sin progreso offline.
 
@@ -122,12 +122,14 @@ Hasta instalar la primera mesa, solo para llevar. Después, futuras llegadas con
 
 ## Recorrido manual del juego
 
+Este recorrido usa el escenario DEV (`?escenario=avanzado`), que empieza con dos mesas e instalaciones concedidas. En la partida normal se empieza sin mesas y cuestan 40/60/80/140/220/320; ver [PROGRESSION.md](docs/PROGRESSION.md).
+
 1. **Inicio:** abre DEV con F2 o mantén dinero 1,2 s; reinicia. Sin moverte no aparecen clientes. Da un paso y espera: primero a los 8 s activos sin necesitar comida. Abrir oficina o cambiar pestaña congela la cuenta.
 2. **Oficina y encuadre:** acércate a la alfombra «Oficina» en pared izquierda. Prueba permanencia, pausa, cierre sin reapertura y salir/volver. Recorre bordes en vertical y horizontal: exterior completo, controles iguales y panel legible.
 3. **Primera venta:** prepara platos y deposita; ve a Caja por detrás. Revisa cobro continuo y progreso visible. Desde delante no cobra.
-4. **Contratación:** reúne 100 y contrata al primero. La misma tarjeta explica el requisito del segundo. Compra otro hornillo por 180; reúne 220 y contrata al segundo. Gasto acumulado 500 si solo hiciste estas compras: activa el tramo de 4,71 s. La tarjeta queda en «Equipo completo». Con gasto 1300 llega el último tramo, 3,33 s.
+4. **Contratación:** reúne 100 y contrata al primero. La misma tarjeta explica el requisito del segundo. Compra otro hornillo por 180; reúne 220 y contrata al segundo. Gasto acumulado 500 si solo hiciste estas compras: activa el tramo de 4 s. La tarjeta queda en «Equipo completo». Con gasto 1000 llega el último tramo, 3,33 s.
 5. **Trabajo simultáneo:** sitúate en el pasillo central de cocina para observar los dos hornillos. Cada cocinero toma ingredientes, camina al suyo, carga/recoge y deposita. Amarillo usa el izquierdo y coral el derecho. Sin ventas terminan en 12 raciones conjuntas; cobra varias y vuelve a mirar: ambos reanudan. Puedes producir en una posición libre sin duplicar recursos. DEV muestra asignaciones, stock, producción comprometida y cargas reservadas.
-6. **Mejoras y ampliación:** comprueba que la mejora de capacidad no aparece y prueba rapidez antes y después de contratar; ambos conservan capacidad 8. Compra cuatro mesas por 80/140/220/320 y revisa circulación y limpieza. Huellas ocupadas rechazan sin cobrar.
+6. **Mejoras y ampliación:** comprueba que la mejora de capacidad no aparece y prueba rapidez antes y después de contratar; ambos conservan capacidad 8. Compra las cuatro mesas adicionales por 80/140/220/320 y revisa circulación y limpieza. Huellas ocupadas rechazan sin cobrar.
 7. **Reinicio:** con ambos trabajando, abre DEV y reinicia. Vuelve a dos mesas, un hornillo, ningún empleado, gasto cero, frecuencia 0,8 y espera del primer movimiento. Desaparecen tareas, inventarios, reservas, comentarios y referencias de interacción.
 
 Los tests preparan fondos y estados de ocupación para casos concretos; no hay dinero gratis en interfaz.
@@ -137,7 +139,7 @@ Los tests preparan fondos y estados de ocupación para casos concretos; no hay d
 1. Abre oficina y cambia entre los tres idiomas. Comprueba dinero, requisitos, precio siguiente, efectos y confirmación de una compra.
 2. Cierra y observa rótulos, filas, avisos de carga, cocineros, limpieza y comentarios. No deben quedar mensajes del idioma anterior.
 3. Comprueba que el restaurante sigue igual y que cerrar exige salir/volver a la oficina.
-4. Recarga: la elección se conserva, pero la partida vuelve a cero. Prueba además con almacenamiento bloqueado y preferencias regionales del navegador.
+4. Recarga: la elección se conserva y la partida continúa desde el guardado local. Prueba además con almacenamiento bloqueado y preferencias regionales del navegador.
 5. En móvil, alterna orientación y desplaza hasta la última tarjeta: selector, textos y Cerrar deben ser legibles.
 
 ## Revisión visual (aprobada)
@@ -149,7 +151,7 @@ Los tests preparan fondos y estados de ocupación para casos concretos; no hay d
 - Prueba Oficina, comprar y desplazar la lista en móvil: Cerrar debe quedar visible. El HUD mantiene dinero y solo añade la tarjeta durante un encargo activo o listo para entregar.
 - Alterna vertical/horizontal y recorre estaciones con teclado o arrastre; el encuadre y la respuesta son los aprobados.
 
-Capturas y límites de verificación en [VERIFICATION.md](docs/VERIFICATION.md). Las capturas revision-* de esta revisión conservan la cámara normal tanto en escritorio como en móvil; las vistas generales con encuadre especial pertenecen a entregas históricas.
+Capturas del README en [docs/media](docs/media). Límites de verificación en [VERIFICATION.md](docs/VERIFICATION.md); las capturas y guiones de QA que cita (artifacts/) son locales y no se incluyen en el repositorio. Las capturas revision-* de esta revisión conservan la cámara normal tanto en escritorio como en móvil; las vistas generales con encuadre especial pertenecen a entregas históricas.
 
 ## Organización y límites
 
