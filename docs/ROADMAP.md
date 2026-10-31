@@ -32,3 +32,14 @@ Ideas registradas, sin implementar ni autorizar un hito posterior:
 - Nuevos locales.
 
 Conservar precios por ración y ratio de bonificación, cocción, rapidez de acciones, movimiento, consumo, controles y cámara. Demanda ajustada exclusivamente a los valores solicitados. Sin assets definitivos, audio, objetivos finales, más personal, publicación ni push. Idioma y guardados normal/DEV separados. El experimento no acredita retención ni comodidad en teléfono físico.
+
+## Trabajo planificado (reanudación)
+
+Detalle y estimaciones en inglés en [ROADMAP.md](../ROADMAP.md), coherente con esta lista:
+
+1. **Tests e infraestructura (~10 h):** CI en GitHub Actions; prueba e2e reproducible a partir de los guiones de QA locales; más tests de guardado, migración, economía y progresión.
+2. **Bugs, QA y balance (~16 h):** revisión manual de progresión normal; teléfonos físicos; Firefox/Safari; simulación por debajo de 10 FPS; tamaño del bundle; prueba de balance con jugadores externos.
+3. **Nuevas mecánicas (~22 h):** segunda receta, horas punta, frigorífico adicional y edición básica de distribución.
+4. **Dirección del juego (~19 h):** cómo escalar más allá del primer warung: segundo local, encargados/franquicia o jornadas con objetivos. Estudio de diseño y prototipos.
+
+Total aproximado: **67 h**.
